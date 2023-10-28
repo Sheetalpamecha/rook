@@ -233,7 +233,7 @@ The selector keys are required to be `public` and `cluster` where each represent
 If you want to learn more, please read:
 
 * [Ceph Networking reference](https://docs.ceph.com/docs/master/rados/configuration/network-config-ref/).
-* [Multus documentation](https://intel.github.io/multus-cni/doc/how-to-use.html)
+* [Multus documentation](https://github.com/k8snetworkplumbingwg/multus-cni/blob/master/docs/how-to-use.md)
 
 Based on the configuration, the operator will do the following:
 
