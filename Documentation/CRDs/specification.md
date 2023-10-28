@@ -18,6 +18,8 @@ Resource Types:
 </li><li>
 <a href="#ceph.rook.io/v1.CephBucketTopic">CephBucketTopic</a>
 </li><li>
+<a href="#ceph.rook.io/v1.CephCOSIDriver">CephCOSIDriver</a>
+</li><li>
 <a href="#ceph.rook.io/v1.CephClient">CephClient</a>
 </li><li>
 <a href="#ceph.rook.io/v1.CephCluster">CephCluster</a>
@@ -477,6 +479,135 @@ BucketTopicStatus
 </td>
 <td>
 <em>(Optional)</em>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ceph.rook.io/v1.CephCOSIDriver">CephCOSIDriver
+</h3>
+<div>
+<p>CephCOSIDriver represents the CRD for the Ceph COSI Driver Deployment</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+ceph.rook.io/v1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>CephCOSIDriver</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#ceph.rook.io/v1.CephCOSIDriverSpec">
+CephCOSIDriverSpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec represents the specification of a Ceph COSI Driver</p>
+<br/>
+<br/>
+<table>
+<tr>
+<td>
+<code>image</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Image is the container image to run the Ceph COSI driver</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>objectProvisionerImage</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ObjectProvisionerImage is the container image to run the COSI driver sidecar</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deploymentStrategy</code><br/>
+<em>
+<a href="#ceph.rook.io/v1.COSIDeploymentStrategy">
+COSIDeploymentStrategy
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeploymentStrategy is the strategy to use to deploy the COSI driver.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>placement</code><br/>
+<em>
+<a href="#ceph.rook.io/v1.Placement">
+Placement
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Placement is the placement strategy to use for the COSI driver</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resources</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#resourcerequirements-v1-core">
+Kubernetes core/v1.ResourceRequirements
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Resources is the resource requirements for the COSI driver</p>
+</td>
+</tr>
+</table>
 </td>
 </tr>
 </tbody>
@@ -1741,6 +1872,23 @@ ObjectStoreSecuritySpec
 <p>Security represents security settings</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>allowUsersInNamespaces</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The list of allowed namespaces in addition to the object store namespace
+where ceph object store users may be created. Specify &ldquo;*&rdquo; to allow all
+namespaces, otherwise list individual namespaces that are to be allowed.
+This is useful for applications that need object store credentials
+to be created in their own namespace, where neither OBCs nor COSI
+is being used to create buckets. The default is empty.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -1863,6 +2011,18 @@ ObjectUserQuotaSpec
 </td>
 <td>
 <em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>clusterNamespace</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The namespace where the parent CephCluster and CephObjectStore are found</p>
 </td>
 </tr>
 </table>
@@ -1992,6 +2152,9 @@ include the port in the definition. For example: &ldquo;<a href="https://my-obje
 In many cases, you should set this to the endpoint of the ingress resource that makes the
 CephObjectStore associated with this CephObjectStoreZone reachable to peer clusters.
 The list can have one or more endpoints pointing to different RGW servers in the zone.</p>
+<p>If a CephObjectStore endpoint is omitted from this list, that object store&rsquo;s gateways will
+not receive multisite replication data
+(see CephObjectStore.spec.gateway.disableMultisiteSyncTraffic).</p>
 </td>
 </tr>
 <tr>
@@ -2553,6 +2716,32 @@ int64
 </tr>
 </tbody>
 </table>
+<h3 id="ceph.rook.io/v1.COSIDeploymentStrategy">COSIDeploymentStrategy
+(<code>string</code> alias)</h3>
+<p>
+(<em>Appears on:</em><a href="#ceph.rook.io/v1.CephCOSIDriverSpec">CephCOSIDriverSpec</a>)
+</p>
+<div>
+<p>COSIDeploymentStrategy represents the strategy to use to deploy the Ceph COSI driver</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr><td><p>&#34;Always&#34;</p></td>
+<td><p>Always means the Ceph COSI driver will be deployed even if the object store is not present</p>
+</td>
+</tr><tr><td><p>&#34;Auto&#34;</p></td>
+<td><p>Auto means the Ceph COSI driver will be deployed automatically if object store is present</p>
+</td>
+</tr><tr><td><p>&#34;Never&#34;</p></td>
+<td><p>Never means the Ceph COSI driver will never deployed</p>
+</td>
+</tr></tbody>
+</table>
 <h3 id="ceph.rook.io/v1.Capacity">Capacity
 </h3>
 <p>
@@ -2785,6 +2974,90 @@ int64
 </em>
 </td>
 <td>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ceph.rook.io/v1.CephCOSIDriverSpec">CephCOSIDriverSpec
+</h3>
+<p>
+(<em>Appears on:</em><a href="#ceph.rook.io/v1.CephCOSIDriver">CephCOSIDriver</a>)
+</p>
+<div>
+<p>CephCOSIDriverSpec represents the specification of a Ceph COSI Driver</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>image</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Image is the container image to run the Ceph COSI driver</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>objectProvisionerImage</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ObjectProvisionerImage is the container image to run the COSI driver sidecar</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deploymentStrategy</code><br/>
+<em>
+<a href="#ceph.rook.io/v1.COSIDeploymentStrategy">
+COSIDeploymentStrategy
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeploymentStrategy is the strategy to use to deploy the COSI driver.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>placement</code><br/>
+<em>
+<a href="#ceph.rook.io/v1.Placement">
+Placement
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Placement is the placement strategy to use for the COSI driver</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resources</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#resourcerequirements-v1-core">
+Kubernetes core/v1.ResourceRequirements
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Resources is the resource requirements for the COSI driver</p>
 </td>
 </tr>
 </tbody>
@@ -3362,6 +3635,18 @@ string
 <em>
 <a href="#ceph.rook.io/v1.DeviceClasses">
 []DeviceClasses
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>osd</code><br/>
+<em>
+<a href="#ceph.rook.io/v1.OSDStatus">
+OSDStatus
 </a>
 </em>
 </td>
@@ -5988,6 +6273,22 @@ Placement
 </tr>
 <tr>
 <td>
+<code>disableMultisiteSyncTraffic</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DisableMultisiteSyncTraffic, when true, prevents this object store&rsquo;s gateways from
+transmitting multisite replication data. Note that this value does not affect whether
+gateways receive multisite replication traffic: see ObjectZone.spec.customEndpoints for that.
+If false or unset, this object store&rsquo;s gateways will be able to transmit multisite
+replication data.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>annotations</code><br/>
 <em>
 <a href="#ceph.rook.io/v1.Annotations">
@@ -7230,6 +7531,31 @@ bool
 </tr>
 <tr>
 <td>
+<code>failureDomainLabel</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>zones</code><br/>
+<em>
+<a href="#ceph.rook.io/v1.MonZoneSpec">
+[]MonZoneSpec
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Zones are specified when we want to provide zonal awareness to mons</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>stretchCluster</code><br/>
 <em>
 <a href="#ceph.rook.io/v1.StretchClusterSpec">
@@ -7254,6 +7580,62 @@ Kubernetes core/v1.PersistentVolumeClaim
 <td>
 <em>(Optional)</em>
 <p>VolumeClaimTemplate is the PVC definition</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ceph.rook.io/v1.MonZoneSpec">MonZoneSpec
+</h3>
+<p>
+(<em>Appears on:</em><a href="#ceph.rook.io/v1.MonSpec">MonSpec</a>, <a href="#ceph.rook.io/v1.StretchClusterSpec">StretchClusterSpec</a>)
+</p>
+<div>
+<p>MonZoneSpec represents the specification of a zone in a Ceph Cluster</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Name is the name of the zone</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>arbiter</code><br/>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Arbiter determines if the zone contains the arbiter used for stretch cluster mode</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>volumeClaimTemplate</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#persistentvolumeclaim-v1-core">
+Kubernetes core/v1.PersistentVolumeClaim
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>VolumeClaimTemplate is the PVC template</p>
 </td>
 </tr>
 </tbody>
@@ -7921,6 +8303,78 @@ string
 </tr>
 </tbody>
 </table>
+<h3 id="ceph.rook.io/v1.OSDStatus">OSDStatus
+</h3>
+<p>
+(<em>Appears on:</em><a href="#ceph.rook.io/v1.CephStorage">CephStorage</a>)
+</p>
+<div>
+<p>OSDStatus represents OSD status of the ceph Cluster</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>storeType</code><br/>
+<em>
+map[string]int
+</em>
+</td>
+<td>
+<p>StoreType is a mapping between the OSD backend stores and number of OSDs using these stores</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ceph.rook.io/v1.OSDStore">OSDStore
+</h3>
+<p>
+(<em>Appears on:</em><a href="#ceph.rook.io/v1.StorageScopeSpec">StorageScopeSpec</a>)
+</p>
+<div>
+<p>OSDStore is the backend storage type used for creating the OSDs</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>type</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Type of backend storage to be used while creating OSDs. If empty, then bluestore will be used</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>updateStore</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>UpdateStore updates the backend store for existing OSDs. It destroys each OSD one at a time, cleans up the backing disk
+and prepares same OSD on that disk</p>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="ceph.rook.io/v1.ObjectEndpoints">ObjectEndpoints
 </h3>
 <p>
@@ -8191,6 +8645,23 @@ ObjectStoreSecuritySpec
 <p>Security represents security settings</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>allowUsersInNamespaces</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The list of allowed namespaces in addition to the object store namespace
+where ceph object store users may be created. Specify &ldquo;*&rdquo; to allow all
+namespaces, otherwise list individual namespaces that are to be allowed.
+This is useful for applications that need object store credentials
+to be created in their own namespace, where neither OBCs nor COSI
+is being used to create buckets. The default is empty.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="ceph.rook.io/v1.ObjectStoreStatus">ObjectStoreStatus
@@ -8349,6 +8820,18 @@ ObjectUserQuotaSpec
 <em>(Optional)</em>
 </td>
 </tr>
+<tr>
+<td>
+<code>clusterNamespace</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The namespace where the parent CephCluster and CephObjectStore are found</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="ceph.rook.io/v1.ObjectStoreUserStatus">ObjectStoreUserStatus
@@ -8433,7 +8916,31 @@ string
 </tr>
 <tr>
 <td>
+<code>users</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Admin capabilities to read/write Ceph object store users. Documented in <a href="https://docs.ceph.com/en/latest/radosgw/admin/?#add-remove-admin-capabilities">https://docs.ceph.com/en/latest/radosgw/admin/?#add-remove-admin-capabilities</a></p>
+</td>
+</tr>
+<tr>
+<td>
 <code>bucket</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Admin capabilities to read/write Ceph object store buckets. Documented in <a href="https://docs.ceph.com/en/latest/radosgw/admin/?#add-remove-admin-capabilities">https://docs.ceph.com/en/latest/radosgw/admin/?#add-remove-admin-capabilities</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>buckets</code><br/>
 <em>
 string
 </em>
@@ -8741,6 +9248,9 @@ include the port in the definition. For example: &ldquo;<a href="https://my-obje
 In many cases, you should set this to the endpoint of the ingress resource that makes the
 CephObjectStore associated with this CephObjectStoreZone reachable to peer clusters.
 The list can have one or more endpoints pointing to different RGW servers in the zone.</p>
+<p>If a CephObjectStore endpoint is omitted from this list, that object store&rsquo;s gateways will
+not receive multisite replication data
+(see CephObjectStore.spec.gateway.disableMultisiteSyncTraffic).</p>
 </td>
 </tr>
 <tr>
@@ -8933,7 +9443,7 @@ string
 <h3 id="ceph.rook.io/v1.Placement">Placement
 </h3>
 <p>
-(<em>Appears on:</em><a href="#ceph.rook.io/v1.FilesystemMirroringSpec">FilesystemMirroringSpec</a>, <a href="#ceph.rook.io/v1.GaneshaServerSpec">GaneshaServerSpec</a>, <a href="#ceph.rook.io/v1.GatewaySpec">GatewaySpec</a>, <a href="#ceph.rook.io/v1.MetadataServerSpec">MetadataServerSpec</a>, <a href="#ceph.rook.io/v1.RBDMirroringSpec">RBDMirroringSpec</a>, <a href="#ceph.rook.io/v1.StorageClassDeviceSet">StorageClassDeviceSet</a>)
+(<em>Appears on:</em><a href="#ceph.rook.io/v1.CephCOSIDriverSpec">CephCOSIDriverSpec</a>, <a href="#ceph.rook.io/v1.FilesystemMirroringSpec">FilesystemMirroringSpec</a>, <a href="#ceph.rook.io/v1.GaneshaServerSpec">GaneshaServerSpec</a>, <a href="#ceph.rook.io/v1.GatewaySpec">GatewaySpec</a>, <a href="#ceph.rook.io/v1.MetadataServerSpec">MetadataServerSpec</a>, <a href="#ceph.rook.io/v1.RBDMirroringSpec">RBDMirroringSpec</a>, <a href="#ceph.rook.io/v1.StorageClassDeviceSet">StorageClassDeviceSet</a>)
 </p>
 <div>
 <p>Placement is the placement for an object</p>
@@ -10848,7 +11358,39 @@ Selection
 <em>(Optional)</em>
 </td>
 </tr>
+<tr>
+<td>
+<code>store</code><br/>
+<em>
+<a href="#ceph.rook.io/v1.OSDStore">
+OSDStore
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
 </tbody>
+</table>
+<h3 id="ceph.rook.io/v1.StoreType">StoreType
+(<code>string</code> alias)</h3>
+<div>
+</div>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr><td><p>&#34;bluestore&#34;</p></td>
+<td><p>StoreTypeBlueStore is the bluestore backend storage for OSDs</p>
+</td>
+</tr><tr><td><p>&#34;bluestore-rdr&#34;</p></td>
+<td><p>StoreTypeBlueStoreRDR is the bluestore-rdr backed storage for OSDs</p>
+</td>
+</tr></tbody>
 </table>
 <h3 id="ceph.rook.io/v1.StretchClusterSpec">StretchClusterSpec
 </h3>
@@ -10894,70 +11436,14 @@ string
 <td>
 <code>zones</code><br/>
 <em>
-<a href="#ceph.rook.io/v1.StretchClusterZoneSpec">
-[]StretchClusterZoneSpec
+<a href="#ceph.rook.io/v1.MonZoneSpec">
+[]MonZoneSpec
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
 <p>Zones is the list of zones</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="ceph.rook.io/v1.StretchClusterZoneSpec">StretchClusterZoneSpec
-</h3>
-<p>
-(<em>Appears on:</em><a href="#ceph.rook.io/v1.StretchClusterSpec">StretchClusterSpec</a>)
-</p>
-<div>
-<p>StretchClusterZoneSpec represents the specification of a stretched zone in a Ceph Cluster</p>
-</div>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>name</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Name is the name of the zone</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>arbiter</code><br/>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Arbiter determines if the zone contains the arbiter</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>volumeClaimTemplate</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.24/#persistentvolumeclaim-v1-core">
-Kubernetes core/v1.PersistentVolumeClaim
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>VolumeClaimTemplate is the PVC template</p>
 </td>
 </tr>
 </tbody>

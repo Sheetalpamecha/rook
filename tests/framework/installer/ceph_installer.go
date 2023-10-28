@@ -61,6 +61,11 @@ const (
 [global]
 osd_pool_default_size = 1
 bdev_flock_retry = 20
+mon_warn_on_pool_no_redundancy = false
+bluefs_buffered_io = false
+mon_data_avail_warn = 10
+[mon]
+mon compact on start = true
 `
 	volumeReplicationVersion = "v0.5.0"
 )
@@ -101,7 +106,7 @@ func ReturnCephVersion() cephv1.CephVersionSpec {
 	case "reef-devel":
 		return ReefDevelVersion
 	default:
-		return QuincyVersion
+		return ReefDevelVersion
 	}
 }
 
@@ -225,13 +230,12 @@ func (h *CephInstaller) WaitForToolbox(namespace string) error {
 // CreateRookToolbox creates rook-ceph-tools via kubectl
 func (h *CephInstaller) CreateRookToolbox(manifests CephManifests) (err error) {
 	logger.Infof("Starting Rook toolbox")
-
 	_, err = h.k8shelper.KubectlWithStdin(manifests.GetToolbox(), createFromStdinArgs...)
 	if err != nil {
 		return errors.Wrap(err, "failed to create rook-toolbox pod")
 	}
 
-	return h.WaitForToolbox(manifests.Settings().Namespace)
+	return nil
 }
 
 // Execute a command in the ceph toolbox
@@ -367,6 +371,9 @@ func (h *CephInstaller) CreateRookExternalCluster(externalManifests CephManifest
 	logger.Infof("Running toolbox on external namespace %q", externalSettings.Namespace)
 	if err := h.CreateRookToolbox(externalManifests); err != nil {
 		return errors.Wrap(err, "failed to start toolbox on external cluster")
+	}
+	if err := h.WaitForToolbox(externalManifests.Settings().Namespace); err != nil {
+		return errors.Wrap(err, "failed to wait for toolbox on external cluster")
 	}
 
 	var clusterStatus cephv1.ClusterStatus
@@ -574,6 +581,10 @@ func (h *CephInstaller) InstallRook() (bool, error) {
 			logger.Errorf("Cluster %q install failed. %v", h.settings.Namespace, err)
 			return false, err
 		}
+		err = h.CreateRookToolbox(h.Manifests)
+		if err != nil {
+			return false, errors.Wrapf(err, "failed to install toolbox in cluster %s", h.settings.Namespace)
+		}
 	}
 
 	logger.Info("Waiting for Rook Cluster")
@@ -581,16 +592,9 @@ func (h *CephInstaller) InstallRook() (bool, error) {
 		return false, err
 	}
 
-	if h.settings.UseHelm {
-		err := h.WaitForToolbox(h.settings.Namespace)
-		if err != nil {
-			return false, err
-		}
-	} else {
-		err = h.CreateRookToolbox(h.Manifests)
-		if err != nil {
-			return false, errors.Wrapf(err, "failed to install toolbox in cluster %s", h.settings.Namespace)
-		}
+	err = h.WaitForToolbox(h.settings.Namespace)
+	if err != nil {
+		return false, err
 	}
 
 	const loopCount = 20

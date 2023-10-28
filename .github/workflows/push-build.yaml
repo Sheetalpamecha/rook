@@ -27,7 +27,7 @@ jobs:
 
       - uses: actions/setup-go@v4
         with:
-          go-version: "1.20"
+          go-version: "1.21"
 
         # docker/setup-qemu action installs QEMU static binaries, which are used to run builders for architectures other than the host.
       - name: set up QEMU
@@ -42,7 +42,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_USR }}
           aws-secret-access-key: ${{ secrets.AWS_PSW }}
@@ -75,10 +75,3 @@ jobs:
           GITHUB_REF: $ {{ env.GITHUB_REF }}
         run: |
           tests/scripts/build-release.sh
-
-      - name: consider debugging
-        if: failure()
-        timeout-minutes: 60
-        uses: ./.github/workflows/tmate_debug
-        with:
-          use-tmate: ${{ secrets.USE_TMATE }}

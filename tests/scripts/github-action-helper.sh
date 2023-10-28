@@ -208,6 +208,10 @@ function validate_yaml() {
   keda_url="https://github.com/kedacore/keda/releases/download/v${keda_version}/keda-${keda_version}.yaml"
   kubectl apply -f "${keda_url}"
 
+  #create the COSI CRDS
+  cosi_crd_url="github.com/kubernetes-sigs/container-object-storage-interface-api"
+  kubectl create -k "${cosi_crd_url}"
+
   # skipping folders and some yamls that are only for openshift.
   manifests="$(find . -maxdepth 1 -type f -name '*.yaml' -and -not -name '*openshift*' -and -not -name 'scc*' -and -not -name 'psp*' -and -not -name 'kustomization*')"
   with_f_arg="$(echo "$manifests" | awk '{printf " -f %s",$1}')" # don't add newline
@@ -230,6 +234,12 @@ function deploy_manifest_with_local_build() {
   fi
   sed -i "s|ROOK_LOG_LEVEL:.*|ROOK_LOG_LEVEL: DEBUG|g" "$1"
   kubectl create -f $1
+}
+
+# Deploy toolbox with same ceph version as the cluster-test for ci
+function deploy_toolbox() {
+  sed -i 's/image: quay\.io\/ceph\/ceph:.*/image: quay.io\/ceph\/ceph:v18/' toolbox.yaml
+  kubectl create -f toolbox.yaml
 }
 
 function replace_ceph_image() {
@@ -278,7 +288,7 @@ function deploy_cluster() {
   kubectl create -f filesystem-mirror.yaml
   kubectl create -f nfs-test.yaml
   kubectl create -f subvolumegroup.yaml
-  deploy_manifest_with_local_build toolbox.yaml
+  deploy_toolbox
 }
 
 function deploy_csi_hostnetwork_disabled_cluster() {
@@ -296,7 +306,7 @@ function deploy_csi_hostnetwork_disabled_cluster() {
   kubectl create -f nfs-test.yaml
   kubectl create -f cluster-test.yaml
   kubectl create -f filesystem-test.yaml
-  deploy_manifest_with_local_build toolbox.yaml
+  deploy_toolbox
 }
 
 function wait_for_prepare_pod() {
@@ -395,7 +405,7 @@ function deploy_first_rook_cluster() {
   yq w -i -d1 cluster-test.yaml spec.storage.useAllDevices false
   yq w -i -d1 cluster-test.yaml spec.storage.deviceFilter "${BLOCK}"1
   kubectl create -f cluster-test.yaml
-  deploy_manifest_with_local_build toolbox.yaml
+  deploy_toolbox
 }
 
 function deploy_second_rook_cluster() {
@@ -407,7 +417,7 @@ function deploy_second_rook_cluster() {
   yq w -i -d1 cluster-test.yaml spec.dataDirHostPath "/var/lib/rook-external"
   kubectl create -f cluster-test.yaml
   yq w -i toolbox.yaml metadata.namespace rook-ceph-secondary
-  deploy_manifest_with_local_build toolbox.yaml
+  deploy_toolbox
 }
 
 function wait_for_rgw() {
@@ -586,11 +596,17 @@ function deploy_multus_cluster() {
   cd deploy/examples
   sed -i 's/.*ROOK_CSI_ENABLE_NFS:.*/  ROOK_CSI_ENABLE_NFS: \"true\"/g' operator.yaml
   deploy_manifest_with_local_build operator.yaml
-  deploy_manifest_with_local_build toolbox.yaml
+  deploy_toolbox
   sed -i "s|#deviceFilter:|deviceFilter: ${BLOCK/\/dev\//}|g" cluster-multus-test.yaml
   kubectl create -f cluster-multus-test.yaml
   kubectl create -f filesystem-test.yaml
   kubectl create -f nfs-test.yaml
+}
+
+function create_operator_toolbox() {
+  cd deploy/examples
+  sed -i "s|image: rook/ceph:.*|image: rook/ceph:local-build|g" toolbox-operator-image.yaml
+  kubectl create -f toolbox-operator-image.yaml
 }
 
 function wait_for_ceph_csi_configmap_to_be_updated {
@@ -656,21 +672,33 @@ function test_csi_nfs_workload {
 }
 
 function install_minikube_with_none_driver() {
-  CRICTL_VERSION="v1.26.0"
-  MINIKUBE_VERSION="v1.29.0"
+  CRICTL_VERSION="v1.28.0"
+  MINIKUBE_VERSION="v1.31.2"
 
   sudo apt update
   sudo apt install -y conntrack socat
   curl -LO https://storage.googleapis.com/minikube/releases/$MINIKUBE_VERSION/minikube_latest_amd64.deb
   sudo dpkg -i minikube_latest_amd64.deb
   rm -f minikube_latest_amd64.deb
-  curl -LO https://github.com/Mirantis/cri-dockerd/releases/download/v0.3.0/cri-dockerd_0.3.0.3-0.ubuntu-focal_amd64.deb
-  sudo dpkg -i cri-dockerd_0.3.0.3-0.ubuntu-focal_amd64.deb
-  rm -f cri-dockerd_0.3.0.3-0.ubuntu-focal_amd64.deb
+
+  curl -LO https://github.com/Mirantis/cri-dockerd/releases/download/v0.3.4/cri-dockerd_0.3.4.3-0.ubuntu-focal_amd64.deb
+  sudo dpkg -i cri-dockerd_0.3.4.3-0.ubuntu-focal_amd64.deb
+  rm -f cri-dockerd_0.3.4.3-0.ubuntu-focal_amd64.deb
+
   wget https://github.com/kubernetes-sigs/cri-tools/releases/download/$CRICTL_VERSION/crictl-$CRICTL_VERSION-linux-amd64.tar.gz
   sudo tar zxvf crictl-$CRICTL_VERSION-linux-amd64.tar.gz -C /usr/local/bin
   rm -f crictl-$CRICTL_VERSION-linux-amd64.tar.gz
   sudo sysctl fs.protected_regular=0
+
+  CNI_PLUGIN_VERSION="v1.3.0"
+  CNI_PLUGIN_TAR="cni-plugins-linux-amd64-$CNI_PLUGIN_VERSION.tgz" # change arch if not on amd64
+  CNI_PLUGIN_INSTALL_DIR="/opt/cni/bin"
+
+  curl -LO "https://github.com/containernetworking/plugins/releases/download/$CNI_PLUGIN_VERSION/$CNI_PLUGIN_TAR"
+  sudo mkdir -p "$CNI_PLUGIN_INSTALL_DIR"
+  sudo tar -xf "$CNI_PLUGIN_TAR" -C "$CNI_PLUGIN_INSTALL_DIR"
+  rm "$CNI_PLUGIN_TAR"
+
   export MINIKUBE_HOME=$HOME CHANGE_MINIKUBE_NONE_USER=true KUBECONFIG=$HOME/.kube/config
   sudo -E minikube start --kubernetes-version="$1" --driver=none --memory 6g --cpus=2 --addons ingress --cni=calico
 }

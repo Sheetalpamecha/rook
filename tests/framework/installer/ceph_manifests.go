@@ -18,9 +18,11 @@ package installer
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/rook/rook/pkg/operator/ceph/object/cosi"
 	"github.com/rook/rook/tests/framework/utils"
 )
 
@@ -54,6 +56,9 @@ type CephManifests interface {
 	GetBucketTopic(topicName string, storeName string, httpEndpointService string) string
 	GetClient(name string, caps map[string]string) string
 	GetFilesystemSubvolumeGroup(fsName, groupName string) string
+	GetCOSIDriver() string
+	GetBucketClass(name, objectstoreUserName, deletionPolicy string) string
+	GetBucketClaim(claimName, className string) string
 }
 
 // CephManifestsMaster wraps rook yaml definitions
@@ -108,7 +113,14 @@ func (m *CephManifestsMaster) GetToolbox() string {
 		manifest = strings.ReplaceAll(manifest, "name: rook-direct-mount", "name: rook-ceph-tools")
 		return strings.ReplaceAll(manifest, "app: rook-direct-mount", "app: rook-ceph-tools")
 	}
-	return m.settings.readManifest("toolbox.yaml")
+	manifest := m.settings.readManifest("toolbox.yaml")
+	if m.settings.CephVersion.Image != "" {
+		// The toolbox uses the ceph image, so replace the version that is being tested
+		// The regex allows for any character in the tag ("\S" --> non-whitespace character)
+		versionRegex := regexp.MustCompile(`image: quay.io/ceph/ceph:\S+`)
+		manifest = versionRegex.ReplaceAllString(manifest, "image: "+m.settings.CephVersion.Image)
+	}
+	return manifest
 }
 
 //**********************************************************************************
@@ -504,7 +516,9 @@ spec:
     maxObjects: ` + strconv.Itoa(maxobjects) + `
     maxSize: ` + maxsize + `
   capabilities:
-    user: ` + usercaps
+    user: "` + usercaps + `"
+    bucket: "` + usercaps + `"
+`
 }
 
 // GetBucketStorageClass returns the manifest to create object bucket
@@ -634,4 +648,40 @@ metadata:
   namespace: ` + m.settings.Namespace + `
 spec:
   filesystemName: ` + fsName
+}
+
+func (m *CephManifestsMaster) GetCOSIDriver() string {
+	// TODO: use the official image once it is available
+	return `apiVersion: ceph.rook.io/v1
+kind: CephCOSIDriver
+metadata:
+  name: ` + cosi.CephCOSIDriverName + `
+  namespace: ` + m.settings.OperatorNamespace + `
+spec:
+  deploymentStrategy: Auto `
+}
+
+func (m *CephManifestsMaster) GetBucketClass(name, objectStoreUserSecretName, deletionPolicy string) string {
+	return `apiVersion: objectstorage.k8s.io/v1alpha1
+kind: BucketClass
+metadata:
+  name: ` + name + `
+  namespace: ` + m.settings.OperatorNamespace + `
+driverName: ceph.objectstorage.k8s.io
+deletionPolicy: ` + deletionPolicy + `
+parameters:
+  objectStoreUserSecretName:  ` + objectStoreUserSecretName + `
+  objectStoreUserSecretNamespace: ` + m.settings.Namespace
+}
+
+func (m *CephManifestsMaster) GetBucketClaim(name, bucketClassName string) string {
+	return `apiVersion: objectstorage.k8s.io/v1alpha1
+kind: BucketClaim
+metadata:
+  name: ` + name + `
+  namespace: ` + m.settings.OperatorNamespace + `
+spec:
+  bucketClassName: ` + bucketClassName + `
+  protocols:
+    - s3 `
 }

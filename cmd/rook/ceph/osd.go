@@ -19,6 +19,7 @@ package ceph
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path"
 	"strconv"
@@ -28,8 +29,13 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/rook/rook/cmd/rook/rook"
+	cephv1 "github.com/rook/rook/pkg/apis/ceph.rook.io/v1"
+	"github.com/rook/rook/pkg/clusterd"
+	cleanup "github.com/rook/rook/pkg/daemon/ceph/cleanup"
+	"github.com/rook/rook/pkg/daemon/ceph/client"
 	osddaemon "github.com/rook/rook/pkg/daemon/ceph/osd"
 	"github.com/rook/rook/pkg/operator/ceph/cluster/mon"
+	"github.com/rook/rook/pkg/operator/ceph/cluster/osd"
 	oposd "github.com/rook/rook/pkg/operator/ceph/cluster/osd"
 	osdcfg "github.com/rook/rook/pkg/operator/ceph/cluster/osd/config"
 	opcontroller "github.com/rook/rook/pkg/operator/ceph/controller"
@@ -65,6 +71,7 @@ var (
 	ownerRefID              string
 	clusterName             string
 	osdID                   int
+	replaceOSDID            int
 	osdStoreType            string
 	osdStringID             string
 	osdUUID                 string
@@ -87,6 +94,7 @@ func addOSDFlags(command *cobra.Command) {
 	addOSDConfigFlags(provisionCmd)
 
 	// flags specific to provisioning
+	provisionCmd.Flags().IntVar(&replaceOSDID, "replace-osd", -1, "osd to be destroyed")
 	provisionCmd.Flags().StringVar(&cfg.devices, "data-devices", "", "comma separated list of devices to use for storage")
 	provisionCmd.Flags().StringVar(&osdDataDeviceFilter, "data-device-filter", "", "a regex filter for the device names to use, or \"all\"")
 	provisionCmd.Flags().StringVar(&osdDataDevicePathFilter, "data-device-path-filter", "", "a regex filter for the device path names to use")
@@ -131,6 +139,7 @@ func addOSDConfigFlags(command *cobra.Command) {
 	command.Flags().BoolVar(&cfg.storeConfig.EncryptedDevice, "encrypted-device", false, "whether to encrypt the OSD with dmcrypt")
 	command.Flags().StringVar(&cfg.storeConfig.DeviceClass, "osd-crush-device-class", "", "The device class for all OSDs configured on this node")
 	command.Flags().StringVar(&cfg.storeConfig.InitialWeight, "osd-crush-initial-weight", "", "The initial weight of OSD in TiB units")
+	command.Flags().StringVar(&cfg.storeConfig.StoreType, "osd-store-type", string(cephv1.StoreTypeBlueStore), "the osd store type such as bluestore")
 }
 
 func init() {
@@ -194,6 +203,7 @@ func writeOSDConfig(cmd *cobra.Command, args []string) error {
 
 // Provision a device or directory for an OSD
 func prepareOSD(cmd *cobra.Command, args []string) error {
+
 	if err := verifyConfigFlags(provisionCmd); err != nil {
 		return err
 	}
@@ -249,8 +259,19 @@ func prepareOSD(cmd *cobra.Command, args []string) error {
 	clusterInfo.OwnerInfo = ownerInfo
 	clusterInfo.Context = cmd.Context()
 	kv := k8sutil.NewConfigMapKVStore(clusterInfo.Namespace, context.Clientset, ownerInfo)
+
+	// destroy the OSD using the OSD ID
+	var replaceOSD *osd.OSDReplaceInfo
+	if replaceOSDID != -1 {
+		osdInfo, err := destroyOSD(context, &clusterInfo, replaceOSDID)
+		if err != nil {
+			rook.TerminateFatal(errors.Wrapf(err, "failed to destroy OSD %d.", osdInfo.ID))
+		}
+		replaceOSD = &oposd.OSDReplaceInfo{ID: osdInfo.ID, Path: osdInfo.BlockPath}
+	}
+
 	agent := osddaemon.NewAgent(context, dataDevices, cfg.metadataDevice, forceFormat,
-		cfg.storeConfig, &clusterInfo, cfg.nodeName, kv, cfg.pvcBacked)
+		cfg.storeConfig, &clusterInfo, cfg.nodeName, kv, replaceOSD, cfg.pvcBacked)
 
 	if cfg.metadataDevice != "" {
 		metaDevice = cfg.metadataDevice
@@ -323,7 +344,7 @@ func commonOSDInit(cmd *cobra.Command) {
 	rook.SetLogLevel()
 	rook.LogStartupInfo(cmd.Flags())
 
-	clusterInfo.Monitors = mon.ParseMonEndpoints(cfg.monEndpoints)
+	clusterInfo.Monitors = opcontroller.ParseMonEndpoints(cfg.monEndpoints)
 }
 
 // use zone/region/hostname labels in the crushmap
@@ -395,4 +416,37 @@ func readCephSecret(path string) error {
 		return errors.New("ceph admin secret not found")
 	}
 	return nil
+}
+
+func destroyOSD(context *clusterd.Context, clusterInfo *client.ClusterInfo, osdID int) (*oposd.OSDInfo, error) {
+	osdInfo, err := osddaemon.GetOSDInfoById(context, clusterInfo, osdID)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get OSD info for OSD.%d", osdID)
+	}
+
+	// destroy the osd
+	logger.Infof("destroying OSD %d on path %q in %q mode", osdInfo.ID, osdInfo.BlockPath, osdInfo.CVMode)
+	destroyOSDArgs := []string{"osd", "destroy", fmt.Sprintf("osd.%d", osdInfo.ID), "--yes-i-really-mean-it"}
+	_, err = client.NewCephCommand(context, clusterInfo, destroyOSDArgs).Run()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to destroy osd.%d.", osdInfo.ID)
+	}
+
+	// Sanitize OSD disk
+	s := cleanup.NewDiskSanitizer(context, clusterInfo,
+		&cephv1.SanitizeDisksSpec{
+			Method:     cephv1.SanitizeMethodProperty(cephv1.SanitizeMethodComplete),
+			DataSource: cephv1.SanitizeDataSourceProperty(cephv1.SanitizeDataSourceZero),
+			Iteration:  1,
+		},
+	)
+
+	// TODO: handle disk sanitization errors
+	if osdInfo.CVMode == "raw" {
+		s.SanitizeRawDisk([]oposd.OSDInfo{osdInfo})
+	} else if osdInfo.CVMode == "lvm" {
+		s.SanitizeLVMDisk([]oposd.OSDInfo{osdInfo})
+	}
+
+	return &osdInfo, nil
 }

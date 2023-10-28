@@ -7,7 +7,7 @@ image:
   repository: rook/ceph
   # -- Image tag
   # @default -- `master`
-  tag: VERSION
+  tag: master
   # -- Image pull policy
   pullPolicy: IfNotPresent
 
@@ -61,6 +61,13 @@ pspEnable: false
 # -- Set the priority class for the rook operator deployment if desired
 priorityClassName:
 
+# -- Set the container security context for the operator
+containerSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 2016
+  runAsGroup: 2016
+  capabilities:
+    drop: ["ALL"]
 # -- If true, loop devices are allowed to be used for osds in test clusters
 allowLoopDevices: false
 
@@ -149,6 +156,10 @@ csi:
   # -- CSI CephFS plugin daemonset update strategy, supported values are OnDelete and RollingUpdate
   # @default -- `RollingUpdate`
   cephFSPluginUpdateStrategy:
+
+  # -- A maxUnavailable parameter of CSI cephFS plugin daemonset update strategy.
+  # @default -- `1`
+  cephFSPluginUpdateStrategyMaxUnavailable:
 
   # -- CSI NFS plugin daemonset update strategy, supported values are OnDelete and RollingUpdate
   # @default -- `RollingUpdate`
@@ -463,6 +474,8 @@ csi:
     enabled: false
     # -- Service monitor scrape interval
     interval: 5s
+    # -- ServiceMonitor additional labels
+    labels: {}
 
   # -- Kubelet root directory path (if the Kubelet uses a different path for the `--root-dir` flag)
   # @default -- `/var/lib/kubelet`

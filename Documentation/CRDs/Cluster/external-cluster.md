@@ -44,7 +44,8 @@ python3 create-external-cluster-resources.py --rbd-data-pool-name <pool_name> --
 - `--monitoring-endpoint-port`: (optional) Ceph Manager prometheus exporter port
 - `--skip-monitoring-endpoint`: (optional) Skip prometheus exporter endpoints, even if they are available. Useful if the prometheus module is not enabled
 - `--ceph-conf`: (optional) Provide a Ceph conf file
-- `--cluster-name`: (optional) Ceph cluster name
+- `--keyring`: (optional) Path to Ceph keyring file, to be used with `--ceph-conf`
+- `--k8s-cluster-name`: (optional) Kubernetes cluster name
 - `--output`: (optional) Output will be stored into the provided file
 - `--dry-run`: (optional) Prints the executed commands without running them
 - `--run-as-user`: (optional) Provides a user name to check the cluster's health status, must be prefixed by `client`.
@@ -57,7 +58,8 @@ python3 create-external-cluster-resources.py --rbd-data-pool-name <pool_name> --
 - `--rgw-zone-name`: (optional) Provides the name of the rgw-zone
 - `--rgw-zonegroup-name`: (optional) Provides the name of the rgw-zone-group
 - `--upgrade`: (optional) Upgrades the 'Ceph CSI keyrings (For example: client.csi-cephfs-provisioner) with new permissions needed for the new cluster version and older permission will still be applied.
-- `--restricted-auth-permission`: (optional) Restrict cephCSIKeyrings auth permissions to specific pools, and cluster. Mandatory flags that need to be set are `--rbd-data-pool-name`, and `--cluster-name`. `--cephfs-filesystem-name` flag can also be passed in case of CephFS user restriction, so it can restrict users to particular CephFS filesystem.
+- `--restricted-auth-permission`: (optional) Restrict cephCSIKeyrings auth permissions to specific pools, and cluster. Mandatory flags that need to be set are `--rbd-data-pool-name`, and `--k8s-cluster-name`. `--cephfs-filesystem-name` flag can also be passed in case of CephFS user restriction, so it can restrict users to particular CephFS filesystem.
+- `--v2-port-enable`: (optional) Enables the v2 mon port (3300) for mons.
 
 ### Multi-tenancy
 
@@ -70,7 +72,7 @@ So you would be running different isolated consumer clusters on top of single `S
     So apply these secrets only to new `Consumer cluster` deployment while using the same `Source cluster`.
 
 ```console
-python3 create-external-cluster-resources.py --cephfs-filesystem-name <filesystem-name> --rbd-data-pool-name <pool_name> --cluster-name <cluster-name> --restricted-auth-permission true --format <bash> --rgw-endpoint <rgw_endpoin> --namespace <rook-ceph-external>
+python3 create-external-cluster-resources.py --cephfs-filesystem-name <filesystem-name> --rbd-data-pool-name <pool_name> --k8s-cluster-name <k8s-cluster-name> --restricted-auth-permission true --format <bash> --rgw-endpoint <rgw_endpoin> --namespace <rook-ceph-external>
 ```
 
 ### RGW Multisite
@@ -90,10 +92,10 @@ python3 create-external-cluster-resources.py --upgrade
 ```
 
 2) If the consumer cluster has restricted caps:
-Restricted users created using `--restricted-auth-permission` flag need to pass mandatory flags: '`--rbd-data-pool-name`(if it is a rbd user), `--cluster-name` and `--run-as-user`' flags while upgrading, in case of cephfs users if you have passed `--cephfs-filesystem-name` flag while creating csi-users then while upgrading it will be mandatory too. In this example the user would be `client.csi-rbd-node-rookstorage-replicapool` (following the pattern `csi-user-clusterName-poolName`)
+Restricted users created using `--restricted-auth-permission` flag need to pass mandatory flags: '`--rbd-data-pool-name`(if it is a rbd user), `--k8s-cluster-name` and `--run-as-user`' flags while upgrading, in case of cephfs users if you have passed `--cephfs-filesystem-name` flag while creating csi-users then while upgrading it will be mandatory too. In this example the user would be `client.csi-rbd-node-rookstorage-replicapool` (following the pattern `csi-user-clusterName-poolName`)
 
 ```console
-python3 create-external-cluster-resources.py --upgrade --rbd-data-pool-name replicapool --cluster-name rookstorage --run-as-user client.csi-rbd-node-rookstorage-replicapool
+python3 create-external-cluster-resources.py --upgrade --rbd-data-pool-name replicapool --k8s-cluster-name rookstorage --run-as-user client.csi-rbd-node-rookstorage-replicapool
 ```
 
 !!! note
@@ -179,6 +181,7 @@ If not installing with Helm, here are the steps to install with manifests.
 ### Connect to an External Object Store
 
 Create the object store resources:
+
 1. Create the [external object store CR](https://github.com/rook/rook/blob/master/deploy/examples/object-external.yaml) to configure connection to external gateways.
 2. Create an [Object store user](https://github.com/rook/rook/blob/master/deploy/examples/object-user.yaml) for credentials to access the S3 endpoint.
 3. Create a [bucket storage class](https://github.com/rook/rook/blob/master/deploy/examples/storageclass-bucket-delete.yaml) where a client can request creating buckets.
@@ -197,8 +200,8 @@ Create the object store resources:
 
 ### Connect to v2 mon port
 
-If encryption or compression on the wire is needed, specify the v2 port.
-Check if the v2 port is available in `ceph quorum_status`, then you can update the `export ROOK_EXTERNAL_CEPH_MON_DATA` to use the v2 port `3300`.
+If encryption or compression on the wire is needed, specify the `--v2-port-enable` flag.
+If the v2 address type is present in the `ceph quorum_status`, then the output of 'ceph mon data' i.e, `ROOK_EXTERNAL_CEPH_MON_DATA` will use the v2 port(`3300`).
 
 ##  Exporting Rook to another cluster
 

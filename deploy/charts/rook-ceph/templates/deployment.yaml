@@ -31,10 +31,7 @@ spec:
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         args: ["ceph", "operator"]
-        securityContext:
-          runAsNonRoot: true
-          runAsUser: 2016
-          runAsGroup: 2016
+        securityContext: {{- .Values.containerSecurityContext | toYaml | nindent 10 }}
         volumeMounts:
         - mountPath: /var/lib/rook
           name: rook-config
@@ -79,8 +76,13 @@ spec:
           value: {{ .Values.discover.resources }}
 {{- end }}
 {{- end }}
+{{- if .Capabilities.APIVersions.Has "security.openshift.io/v1" }}
+        - name: ROOK_HOSTPATH_REQUIRES_PRIVILEGED
+          value: "true"
+{{- else }}
         - name: ROOK_HOSTPATH_REQUIRES_PRIVILEGED
           value: "{{ .Values.hostpathRequiresPrivileged }}"
+{{- end }}
         - name: ROOK_DISABLE_DEVICE_HOTPLUG
           value: "{{ .Values.disableDeviceHotplug }}"
         - name: DISCOVER_DAEMON_UDEV_BLACKLIST

@@ -24,7 +24,7 @@ jobs:
       - name: setup golang
         uses: actions/setup-go@v4
         with:
-          go-version: "1.20"
+          go-version: "1.21"
 
       - name: Install Docker
         run: |
@@ -121,7 +121,7 @@ jobs:
         uses: ./.github/workflows/integration-test-config-latest-k8s
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          kubernetes-version: "1.25.0"
+          kubernetes-version: "1.28.0"
 
       - name: TestCephSmokeSuite
         run: |
@@ -156,7 +156,7 @@ jobs:
         uses: ./.github/workflows/integration-test-config-latest-k8s
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          kubernetes-version: "1.25.0"
+          kubernetes-version: "1.28.0"
 
       - name: TestCephSmokeSuite
         run: |
@@ -191,7 +191,7 @@ jobs:
         uses: ./.github/workflows/integration-test-config-latest-k8s
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          kubernetes-version: "1.25.0"
+          kubernetes-version: "1.28.0"
 
       - name: TestCephSmokeSuite
         run: |
@@ -204,7 +204,7 @@ jobs:
           export LOG_DIR="/home/runner/work/rook/rook/tests/integration/_output/tests/"
           export CLUSTER_NAMESPACE="smoke-ns"
           export OPERATOR_NAMESPACE="smoke-ns-system"
-          tests/scripts/collect-logs.sh          
+          tests/scripts/collect-logs.sh
 
       - name: Artifact
         uses: actions/upload-artifact@v3
@@ -227,7 +227,7 @@ jobs:
         uses: ./.github/workflows/integration-test-config-latest-k8s
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          kubernetes-version: "1.25.0"
+          kubernetes-version: "1.28.0"
 
       - name: TestCephSmokeSuite
         run: |
@@ -262,7 +262,7 @@ jobs:
         uses: ./.github/workflows/integration-test-config-latest-k8s
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          kubernetes-version: "1.25.0"
+          kubernetes-version: "1.28.0"
 
       - name: TestCephObjectSuite
         run: |
@@ -297,7 +297,7 @@ jobs:
         uses: ./.github/workflows/integration-test-config-latest-k8s
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          kubernetes-version: "1.25.0"
+          kubernetes-version: "1.28.0"
 
       - name: TestCephObjectSuite
         run: |
@@ -332,7 +332,7 @@ jobs:
         uses: ./.github/workflows/integration-test-config-latest-k8s
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          kubernetes-version: "1.25.0"
+          kubernetes-version: "1.28.0"
 
       - name: TestCephUpgradeSuite
         run: |
@@ -367,7 +367,7 @@ jobs:
         uses: ./.github/workflows/integration-test-config-latest-k8s
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          kubernetes-version: "1.25.0"
+          kubernetes-version: "1.28.0"
 
       - name: TestCephUpgradeSuite
         run: |

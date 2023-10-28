@@ -38,7 +38,6 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 )
 
 const (
@@ -56,7 +55,7 @@ const (
 	ExternalMgrAppName                      = "rook-ceph-mgr-external"
 	ExternalCephExporterName                = "rook-ceph-exporter-external"
 	ServiceExternalMetricName               = "http-external-metrics"
-	CephUserID                              = 167
+	CephUserID                              = int64(167)
 	livenessProbeTimeoutSeconds       int32 = 5
 	livenessProbeInitialDelaySeconds  int32 = 10
 	startupProbeFailuresDaemonDefault int32 = 6 // multiply by 10 = effective startup timeout
@@ -395,11 +394,39 @@ func ContainerEnvVarReference(envVarName string) string {
 }
 
 // DaemonEnvVars returns the container environment variables used by all Ceph daemons.
-func DaemonEnvVars(image string) []v1.EnvVar {
+func DaemonEnvVars(cephClusterSpec *cephv1.ClusterSpec) []v1.EnvVar {
+	networkEnv := ApplyNetworkEnv(cephClusterSpec)
+	cephDaemonsEnvVars := append(k8sutil.ClusterDaemonEnvVars(cephClusterSpec.CephVersion.Image), networkEnv...)
+
 	return append(
-		k8sutil.ClusterDaemonEnvVars(image),
+		cephDaemonsEnvVars,
 		config.StoredMonHostEnvVars()...,
 	)
+}
+
+func ApplyNetworkEnv(cephClusterSpec *cephv1.ClusterSpec) []v1.EnvVar {
+	if cephClusterSpec.Network.Connections != nil {
+		msgr2Required := false
+		encryptionEnabled := false
+		compressionEnabled := false
+		if cephClusterSpec.Network.Connections.RequireMsgr2 {
+			msgr2Required = true
+		}
+		if cephClusterSpec.Network.Connections.Encryption != nil && cephClusterSpec.Network.Connections.Encryption.Enabled {
+			encryptionEnabled = true
+		}
+		if cephClusterSpec.Network.Connections.Compression != nil && cephClusterSpec.Network.Connections.Compression.Enabled {
+			compressionEnabled = true
+		}
+		envVarValue := fmt.Sprintf("msgr2_%t_encryption_%t_compression_%t", msgr2Required, encryptionEnabled, compressionEnabled)
+
+		rookMsgr2Env := []v1.EnvVar{{
+			Name:  "ROOK_MSGR2",
+			Value: envVarValue,
+		}}
+		return rookMsgr2Env
+	}
+	return []v1.EnvVar{}
 }
 
 // AppLabels returns labels common for all Rook-Ceph applications which may be useful for admins.
@@ -686,8 +713,9 @@ func PodSecurityContext() *v1.SecurityContext {
 // PodSecurityContext detects if the pod needs privileges to run
 func CephSecurityContext() *v1.SecurityContext {
 	context := PodSecurityContext()
-	context.RunAsUser = pointer.Int64(CephUserID)
-	context.RunAsGroup = pointer.Int64(CephUserID)
+	cephUserID := CephUserID
+	context.RunAsUser = &cephUserID
+	context.RunAsGroup = &cephUserID
 	return context
 }
 

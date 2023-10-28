@@ -40,58 +40,59 @@ import (
 )
 
 type Param struct {
-	CSIPluginImage                        string
-	RegistrarImage                        string
-	ProvisionerImage                      string
-	AttacherImage                         string
-	SnapshotterImage                      string
-	ResizerImage                          string
-	DriverNamePrefix                      string
-	EnableCSIGRPCMetrics                  string
-	KubeletDirPath                        string
-	ForceCephFSKernelClient               string
-	CephFSKernelMountOptions              string
-	CephFSPluginUpdateStrategy            string
-	NFSPluginUpdateStrategy               string
-	RBDPluginUpdateStrategy               string
-	RBDPluginUpdateStrategyMaxUnavailable string
-	PluginPriorityClassName               string
-	ProvisionerPriorityClassName          string
-	VolumeReplicationImage                string
-	CSIAddonsImage                        string
-	ImagePullPolicy                       string
-	CSIClusterName                        string
-	CSIDomainLabels                       string
-	CrushLocationLabels                   string
-	GRPCTimeout                           time.Duration
-	CSIEnableMetadata                     bool
-	EnablePluginSelinuxHostMount          bool
-	EnableCSIHostNetwork                  bool
-	EnableOMAPGenerator                   bool
-	EnableRBDSnapshotter                  bool
-	EnableCephFSSnapshotter               bool
-	EnableNFSSnapshotter                  bool
-	EnableCSIAddonsSideCar                bool
-	MountCustomCephConf                   bool
-	EnableCSIDriverSeLinuxMount           bool
-	EnableCSIEncryption                   bool
-	EnableCSITopology                     bool
-	EnableLiveness                        bool
-	EnableReadAffinity                    bool
-	CephFSAttachRequired                  bool
-	RBDAttachRequired                     bool
-	NFSAttachRequired                     bool
-	LogLevel                              uint8
-	SidecarLogLevel                       uint8
-	CephFSGRPCMetricsPort                 uint16
-	CephFSLivenessMetricsPort             uint16
-	RBDGRPCMetricsPort                    uint16
-	CSIAddonsPort                         uint16
-	RBDLivenessMetricsPort                uint16
-	ProvisionerReplicas                   int32
-	CSICephFSPodLabels                    map[string]string
-	CSINFSPodLabels                       map[string]string
-	CSIRBDPodLabels                       map[string]string
+	CSIPluginImage                           string
+	RegistrarImage                           string
+	ProvisionerImage                         string
+	AttacherImage                            string
+	SnapshotterImage                         string
+	ResizerImage                             string
+	DriverNamePrefix                         string
+	EnableCSIGRPCMetrics                     string
+	KubeletDirPath                           string
+	ForceCephFSKernelClient                  string
+	CephFSKernelMountOptions                 string
+	CephFSPluginUpdateStrategy               string
+	CephFSPluginUpdateStrategyMaxUnavailable string
+	NFSPluginUpdateStrategy                  string
+	RBDPluginUpdateStrategy                  string
+	RBDPluginUpdateStrategyMaxUnavailable    string
+	PluginPriorityClassName                  string
+	ProvisionerPriorityClassName             string
+	VolumeReplicationImage                   string
+	CSIAddonsImage                           string
+	ImagePullPolicy                          string
+	CSIClusterName                           string
+	CSIDomainLabels                          string
+	CrushLocationLabels                      string
+	GRPCTimeout                              time.Duration
+	CSIEnableMetadata                        bool
+	EnablePluginSelinuxHostMount             bool
+	EnableCSIHostNetwork                     bool
+	EnableOMAPGenerator                      bool
+	EnableRBDSnapshotter                     bool
+	EnableCephFSSnapshotter                  bool
+	EnableNFSSnapshotter                     bool
+	EnableCSIAddonsSideCar                   bool
+	MountCustomCephConf                      bool
+	EnableCSIDriverSeLinuxMount              bool
+	EnableCSIEncryption                      bool
+	EnableCSITopology                        bool
+	EnableLiveness                           bool
+	EnableReadAffinity                       bool
+	CephFSAttachRequired                     bool
+	RBDAttachRequired                        bool
+	NFSAttachRequired                        bool
+	LogLevel                                 uint8
+	SidecarLogLevel                          uint8
+	CephFSGRPCMetricsPort                    uint16
+	CephFSLivenessMetricsPort                uint16
+	RBDGRPCMetricsPort                       uint16
+	CSIAddonsPort                            uint16
+	RBDLivenessMetricsPort                   uint16
+	ProvisionerReplicas                      int32
+	CSICephFSPodLabels                       map[string]string
+	CSINFSPodLabels                          map[string]string
+	CSIRBDPodLabels                          map[string]string
 }
 
 type templateParam struct {
@@ -801,8 +802,16 @@ func (r *ReconcileCSI) configureHolder(driver driverDetails, c ClusterDetail, tp
 		return errors.Wrapf(err, "failed to load ceph %q plugin holder template", driver.fullName)
 	}
 
-	// DO NOT set owner reference on ceph plugin holder daemonset, this DS must never restart unless
-	// the entire node is rebooted
+	// As the plugin holder daemonset is created in the operator namespace, we
+	// need to set the owner reference to the cluster namespace only if the
+	// operator and cluster are created in same namespace so that the
+	// plugin holder daemonset is deleted when the cluster is deleted.
+	if r.opConfig.OperatorNamespace == c.cluster.Namespace {
+		err = c.clusterInfo.OwnerInfo.SetControllerReference(cephPluginHolder)
+		if err != nil {
+			return errors.Wrapf(err, "failed to set owner reference to plugin holder %q", driver.fullName)
+		}
+	}
 	holderPluginTolerations := getToleration(r.opConfig.Parameters, driver.toleration, pluginTolerations)
 	holderPluginNodeAffinity := getNodeAffinity(r.opConfig.Parameters, driver.nodeAffinity, pluginNodeAffinity)
 	// apply driver's plugin tolerations and node affinity

@@ -420,11 +420,18 @@ type Capacity struct {
 // CephStorage represents flavors of Ceph Cluster Storage
 type CephStorage struct {
 	DeviceClasses []DeviceClasses `json:"deviceClasses,omitempty"`
+	OSD           OSDStatus       `json:"osd,omitempty"`
 }
 
 // DeviceClasses represents device classes of a Ceph Cluster
 type DeviceClasses struct {
 	Name string `json:"name,omitempty"`
+}
+
+// OSDStatus represents OSD status of the ceph Cluster
+type OSDStatus struct {
+	// StoreType is a mapping between the OSD backend stores and number of OSDs using these stores
+	StoreType map[string]int `json:"storeType,omitempty"`
 }
 
 // ClusterVersion represents the version of a Ceph Cluster
@@ -530,6 +537,11 @@ type MonSpec struct {
 	// AllowMultiplePerNode determines if we can run multiple monitors on the same node (not recommended)
 	// +optional
 	AllowMultiplePerNode bool `json:"allowMultiplePerNode,omitempty"`
+	// +optional
+	FailureDomainLabel string `json:"failureDomainLabel,omitempty"`
+	// Zones are specified when we want to provide zonal awareness to mons
+	// +optional
+	Zones []MonZoneSpec `json:"zones,omitempty"`
 	// StretchCluster is the stretch cluster specification
 	// +optional
 	StretchCluster *StretchClusterSpec `json:"stretchCluster,omitempty"`
@@ -550,15 +562,15 @@ type StretchClusterSpec struct {
 	// Zones is the list of zones
 	// +optional
 	// +nullable
-	Zones []StretchClusterZoneSpec `json:"zones,omitempty"`
+	Zones []MonZoneSpec `json:"zones,omitempty"`
 }
 
-// StretchClusterZoneSpec represents the specification of a stretched zone in a Ceph Cluster
-type StretchClusterZoneSpec struct {
+// MonZoneSpec represents the specification of a zone in a Ceph Cluster
+type MonZoneSpec struct {
 	// Name is the name of the zone
 	// +optional
 	Name string `json:"name,omitempty"`
-	// Arbiter determines if the zone contains the arbiter
+	// Arbiter determines if the zone contains the arbiter used for stretch cluster mode
 	// +optional
 	Arbiter bool `json:"arbiter,omitempty"`
 	// VolumeClaimTemplate is the PVC template
@@ -1375,6 +1387,15 @@ type ObjectStoreSpec struct {
 	// +optional
 	// +nullable
 	Security *ObjectStoreSecuritySpec `json:"security,omitempty"`
+
+	// The list of allowed namespaces in addition to the object store namespace
+	// where ceph object store users may be created. Specify "*" to allow all
+	// namespaces, otherwise list individual namespaces that are to be allowed.
+	// This is useful for applications that need object store credentials
+	// to be created in their own namespace, where neither OBCs nor COSI
+	// is being used to create buckets. The default is empty.
+	// +optional
+	AllowUsersInNamespaces []string `json:"allowUsersInNamespaces,omitempty"`
 }
 
 // ObjectHealthCheckSpec represents the health check of an object store
@@ -1432,6 +1453,14 @@ type GatewaySpec struct {
 	// +nullable
 	// +optional
 	Placement Placement `json:"placement,omitempty"`
+
+	// DisableMultisiteSyncTraffic, when true, prevents this object store's gateways from
+	// transmitting multisite replication data. Note that this value does not affect whether
+	// gateways receive multisite replication traffic: see ObjectZone.spec.customEndpoints for that.
+	// If false or unset, this object store's gateways will be able to transmit multisite
+	// replication data.
+	// +optional
+	DisableMultisiteSyncTraffic bool `json:"disableMultisiteSyncTraffic,omitempty"`
 
 	// The annotations-related configuration to add/set on each Pod related object.
 	// +kubebuilder:pruning:PreserveUnknownFields
@@ -1577,6 +1606,9 @@ type ObjectStoreUserSpec struct {
 	// +optional
 	// +nullable
 	Quotas *ObjectUserQuotaSpec `json:"quotas,omitempty"`
+	// The namespace where the parent CephCluster and CephObjectStore are found
+	// +optional
+	ClusterNamespace string `json:"clusterNamespace,omitempty"`
 }
 
 // Additional admin-level capabilities for the Ceph object store user
@@ -1587,8 +1619,16 @@ type ObjectUserCapSpec struct {
 	User string `json:"user,omitempty"`
 	// +optional
 	// +kubebuilder:validation:Enum={"*","read","write","read, write"}
+	// Admin capabilities to read/write Ceph object store users. Documented in https://docs.ceph.com/en/latest/radosgw/admin/?#add-remove-admin-capabilities
+	Users string `json:"users,omitempty"`
+	// +optional
+	// +kubebuilder:validation:Enum={"*","read","write","read, write"}
 	// Admin capabilities to read/write Ceph object store buckets. Documented in https://docs.ceph.com/en/latest/radosgw/admin/?#add-remove-admin-capabilities
 	Bucket string `json:"bucket,omitempty"`
+	// +optional
+	// +kubebuilder:validation:Enum={"*","read","write","read, write"}
+	// Admin capabilities to read/write Ceph object store buckets. Documented in https://docs.ceph.com/en/latest/radosgw/admin/?#add-remove-admin-capabilities
+	Buckets string `json:"buckets,omitempty"`
 	// +optional
 	// +kubebuilder:validation:Enum={"*","read","write","read, write"}
 	// Admin capabilities to read/write Ceph object store metadata. Documented in https://docs.ceph.com/en/latest/radosgw/admin/?#add-remove-admin-capabilities
@@ -1765,6 +1805,10 @@ type ObjectZoneSpec struct {
 	// In many cases, you should set this to the endpoint of the ingress resource that makes the
 	// CephObjectStore associated with this CephObjectStoreZone reachable to peer clusters.
 	// The list can have one or more endpoints pointing to different RGW servers in the zone.
+	//
+	// If a CephObjectStore endpoint is omitted from this list, that object store's gateways will
+	// not receive multisite replication data
+	// (see CephObjectStore.spec.gateway.disableMultisiteSyncTraffic).
 	// +nullable
 	// +optional
 	CustomEndpoints []string `json:"customEndpoints,omitempty"`
@@ -2567,6 +2611,21 @@ type StorageScopeSpec struct {
 	// +nullable
 	// +optional
 	StorageClassDeviceSets []StorageClassDeviceSet `json:"storageClassDeviceSets,omitempty"`
+	// +optional
+	Store OSDStore `json:"store,omitempty"`
+}
+
+// OSDStore is the backend storage type used for creating the OSDs
+type OSDStore struct {
+	// Type of backend storage to be used while creating OSDs. If empty, then bluestore will be used
+	// +optional
+	// +kubebuilder:validation:Enum=bluestore;bluestore-rdr;
+	Type string `json:"type,omitempty"`
+	// UpdateStore updates the backend store for existing OSDs. It destroys each OSD one at a time, cleans up the backing disk
+	// and prepares same OSD on that disk
+	// +optional
+	// +kubebuilder:validation:Pattern=`^$|^yes-really-update-store$`
+	UpdateStore string `json:"updateStore,omitempty"`
 }
 
 // Node is a storage nodes
@@ -2824,3 +2883,56 @@ type ConfigFileVolumeSource struct {
 	// projected items for all in one resources secrets, configmaps, and downward API
 	Projected *v1.ProjectedVolumeSource `json:"projected,omitempty" protobuf:"bytes,26,opt,name=projected"`
 }
+
+// +genclient
+// +genclient:noStatus
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// CephCOSIDriver represents the CRD for the Ceph COSI Driver Deployment
+// +kubebuilder:resource:shortName=cephcosi
+type CephCOSIDriver struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	// Spec represents the specification of a Ceph COSI Driver
+	Spec CephCOSIDriverSpec `json:"spec"`
+}
+
+// CephCOSIDriverList represents a list of Ceph COSI Driver
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type CephCOSIDriverList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []CephCOSIDriver `json:"items"`
+}
+
+// CephCOSIDriverSpec represents the specification of a Ceph COSI Driver
+type CephCOSIDriverSpec struct {
+	// Image is the container image to run the Ceph COSI driver
+	// +optional
+	Image string `json:"image,omitempty"`
+	// ObjectProvisionerImage is the container image to run the COSI driver sidecar
+	// +optional
+	ObjectProvisionerImage string `json:"objectProvisionerImage,omitempty"`
+	// DeploymentStrategy is the strategy to use to deploy the COSI driver.
+	// +optional
+	// +kubebuilder:validation:Enum=Never;Auto;Always
+	DeploymentStrategy COSIDeploymentStrategy `json:"deploymentStrategy,omitempty"`
+	// Placement is the placement strategy to use for the COSI driver
+	// +optional
+	Placement Placement `json:"placement,omitempty"`
+	// Resources is the resource requirements for the COSI driver
+	// +optional
+	Resources v1.ResourceRequirements `json:"resources,omitempty"`
+}
+
+// COSIDeploymentStrategy represents the strategy to use to deploy the Ceph COSI driver
+type COSIDeploymentStrategy string
+
+const (
+	// Never means the Ceph COSI driver will never deployed
+	COSIDeploymentStrategyNever COSIDeploymentStrategy = "Never"
+	// Auto means the Ceph COSI driver will be deployed automatically if object store is present
+	COSIDeploymentStrategyAuto COSIDeploymentStrategy = "Auto"
+	// Always means the Ceph COSI driver will be deployed even if the object store is not present
+	COSIDeploymentStrategyAlways COSIDeploymentStrategy = "Always"
+)

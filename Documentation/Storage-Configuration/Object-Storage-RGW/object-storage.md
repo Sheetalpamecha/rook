@@ -117,6 +117,9 @@ $ curl 10.100.28.138:8080
 
 ## Create a Bucket
 
+!!! info
+    This document is a guide for creating bucket with an Object Bucket Claim (OBC). To create a bucket with the experimental COSI Driver, see the [COSI documentation](cosi.md).
+
 Now that the object store is configured, next we need to create a bucket where a client can read and write objects. A bucket can be created by defining a storage class, similar to the pattern used by block and file storage.
 First, define the storage class that will allow object clients to create a bucket.
 The storage class defines the object storage system, the bucket retention policy, and other properties required by the administrator. Save the following as `storageclass-bucket-delete.yaml` (the example is named as such due to the `Delete` reclaim policy).
@@ -216,9 +219,13 @@ below in the section [creating a user](#create-a-user) if you are not creating t
 
 ### Configure s5cmd
 
-To test the `CephObjectStore`, set the object store credentials in the toolbox pod for the `s5cmd` tool.
+To test the `CephObjectStore`, set the object store credentials in the toolbox pod that contains the `s5cmd` tool.
+
+!!! important
+    The default toolbox.yaml does not contain the s5cmd. The toolbox must be started with the rook operator image (toolbox-operator-image), which does contain s5cmd.
 
 ```console
+kubectl create -f deploy/examples/toolbox-operator-image.yaml
 mkdir ~/.aws
 cat > ~/.aws/credentials << EOF
 [default]

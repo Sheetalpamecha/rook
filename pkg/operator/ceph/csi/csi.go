@@ -176,7 +176,14 @@ func (r *ReconcileCSI) setParams(ver *version.Info) error {
 	}
 
 	CSIParam.EnableCSIAddonsSideCar = false
-	if strings.EqualFold(k8sutil.GetValue(r.opConfig.Parameters, "CSI_ENABLE_CSIADDONS", "false"), "true") {
+	_, err = r.context.ApiExtensionsClient.ApiextensionsV1().CustomResourceDefinitions().Get(r.opManagerContext, "csiaddonsnode.csiaddons.openshift.io", metav1.GetOptions{})
+	if err == nil {
+		CSIParam.EnableCSIAddonsSideCar = true
+	}
+	if strings.EqualFold(k8sutil.GetValue(r.opConfig.Parameters, "CSI_ENABLE_CSIADDONS", ""), "false") {
+		CSIParam.EnableCSIAddonsSideCar = false
+	}
+	if strings.EqualFold(k8sutil.GetValue(r.opConfig.Parameters, "CSI_ENABLE_CSIADDONS", ""), "true") {
 		CSIParam.EnableCSIAddonsSideCar = true
 	}
 
@@ -199,6 +206,7 @@ func (r *ReconcileCSI) setParams(ver *version.Info) error {
 		CSIParam.CephFSPluginUpdateStrategy = onDelete
 	} else {
 		CSIParam.CephFSPluginUpdateStrategy = rollingUpdate
+		CSIParam.CephFSPluginUpdateStrategyMaxUnavailable = k8sutil.GetValue(r.opConfig.Parameters, "CSI_CEPHFS_PLUGIN_UPDATE_STRATEGY_MAX_UNAVAILABLE", "1")
 	}
 
 	if strings.EqualFold(k8sutil.GetValue(r.opConfig.Parameters, "CSI_NFS_PLUGIN_UPDATE_STRATEGY", rollingUpdate), onDelete) {

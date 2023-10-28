@@ -13,7 +13,9 @@
         "cephfsmirror",
         "ci",
         "core",
+        "cosi",
         "csi",
+        "doc",
         "docs",
         "exporter",
         "external",
@@ -36,6 +38,7 @@
         "subvolumegroup",
         "namespace",
         "test",
+        "tests",
         "webhook"
       ]
     ],
