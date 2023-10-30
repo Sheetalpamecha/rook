@@ -45,6 +45,8 @@ var (
 	DefaultValidationNginxImage = "nginxinc/nginx-unprivileged:stable-alpine"
 
 	DefaultValidationResourceTimeout = 3 * time.Minute
+	
+	DefaultValidationFlakyThreshold = 20 * time.Second
 
 	DefaultStorageNodeLabelKey   = "storage-node"
 	DefaultStorageNodeLabelValue = "true"
@@ -72,6 +74,7 @@ type ValidationTestConfig struct {
 	PublicNetwork   string                `yaml:"publicNetwork"`
 	ClusterNetwork  string                `yaml:"clusterNetwork"`
 	ResourceTimeout time.Duration         `yaml:"resourceTimeout"`
+	FlakyThreshold  time.Duration         `yaml:"flakyThreshold"`
 	NginxImage      string                `yaml:"nginxImage"`
 	NodeTypes       map[string]NodeConfig `yaml:"nodeTypes"`
 }
@@ -113,6 +116,7 @@ func NewDefaultValidationTestConfig() *ValidationTestConfig {
 	return &ValidationTestConfig{
 		Namespace:       DefaultValidationNamespace,
 		ResourceTimeout: DefaultValidationResourceTimeout,
+		FlakyThreshold: DefaultValidationFlakyThreshold,
 		NginxImage:      DefaultValidationNginxImage,
 		NodeTypes: map[string]NodeConfig{
 			DefaultValidationNodeType: {
@@ -209,6 +213,9 @@ func (c *ValidationTestConfig) Validate() error {
 	if c.ResourceTimeout < 1*time.Minute {
 		errs = append(errs, "resourceTimeout must be at least one minute (two or more are recommended)")
 	}
+	if c.FlakyThreshold < 20*time.Second {
+                errs = append(errs, "flaky threshold must be at least 20 second (Default value is 20 seconds)")
+        }
 	if c.NginxImage == "" {
 		errs = append(errs, "nginxImage must be specified")
 	}
@@ -261,6 +268,7 @@ func NewDedicatedStorageNodesValidationTestConfig() *ValidationTestConfig {
 	return &ValidationTestConfig{
 		Namespace:       DefaultValidationNamespace,
 		ResourceTimeout: DefaultValidationResourceTimeout,
+		FlakyThreshold:  DefaultValidationFlakyThreshold,
 		NginxImage:      DefaultValidationNginxImage,
 		NodeTypes: map[string]NodeConfig{
 			DedicatedStorageNodeType: dedicatedStorageNodeConfig,
@@ -277,6 +285,7 @@ func NewArbiterValidationTestConfig() *ValidationTestConfig {
 	return &ValidationTestConfig{
 		Namespace:       DefaultValidationNamespace,
 		ResourceTimeout: DefaultValidationResourceTimeout,
+		FlakyThreshold:  DefaultValidationFlakyThreshold,
 		NginxImage:      DefaultValidationNginxImage,
 		NodeTypes: map[string]NodeConfig{
 			DedicatedStorageNodeType: dedicatedStorageNodeConfig,

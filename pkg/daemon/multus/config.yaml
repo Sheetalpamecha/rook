@@ -16,6 +16,12 @@ clusterNetwork: "{{ .ClusterNetwork }}"
 # This should be at least 1 minute. 2 minutes or more is recommended.
 resourceTimeout: "{{ .ResourceTimeout }}"
 
+# This is a time duration or point of reference used to determine when network behavior becomes
+# problematic. For instance, if clients are expected to become ready in a short time because
+# they start simultaneously, If the time taken exceeds this threshold, it indicates network
+# unreliability. This should be at least 20 seconds.
+flakyThreshold: "{{ .FlakyThreshold }}"
+
 # The Nginx image which will be used for the web server and clients.
 nginxImage: "{{ .NginxImage }}"
 

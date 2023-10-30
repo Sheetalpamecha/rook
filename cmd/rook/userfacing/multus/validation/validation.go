@@ -119,6 +119,7 @@ func init() {
 	}
 
 	// flags for 'validation run'
+	
 	runCmd.Flags().StringVar(&validationConfig.PublicNetwork, "public-network", defaultConfig.PublicNetwork,
 		"The name of the Network Attachment Definition (NAD) that will be used for Ceph's public network. "+
 			"This should be a namespaced name in the form <namespace>/<name> if the NAD is defined in a different namespace from the cluster namespace.")
@@ -134,14 +135,23 @@ func init() {
 	runCmd.Flags().StringVar(&validationConfig.NginxImage, "nginx-image", defaultConfig.NginxImage,
 		"The Nginx image used for the validation server and clients.")
 
+	validationConfig.FlakyThreshold = defaultConfig.FlakyThreshold
+        t := (*timeoutSeconds)(&validationConfig.FlakyThreshold)
+        runCommand.Flags().VarPF(t, "flaky-threshold", "",
+		"The time duration used to determine when network behavior becomes problematic. "+
+			"For instance, if clients are expected to become ready in a short time because they start simultaneously, "+
+			"If the time taken exceeds this threshold, it indicates network unreliability. This should be at least 20 seconds.")
+	
 	runCmd.Flags().StringVarP(&validationConfigFile, "config", "c", "",
 		"The validation test config file to use. This cannot be used with other flags.")
+
 	runCmd.MarkFlagsMutuallyExclusive("config", "timeout-minutes")
 	runCmd.MarkFlagsMutuallyExclusive("config", "namespace")
 	runCmd.MarkFlagsMutuallyExclusive("config", "public-network")
 	runCmd.MarkFlagsMutuallyExclusive("config", "cluster-network")
 	runCmd.MarkFlagsMutuallyExclusive("config", "daemons-per-node")
 	runCmd.MarkFlagsMutuallyExclusive("config", "nginx-image")
+	runCmd.MarkFlagsMutuallyExclusive("config", "flaky-threshold")
 
 	// flags for 'validation cleanup'
 	// none
@@ -252,4 +262,22 @@ func (t *timeoutMinutes) Set(v string) error {
 }
 func (t timeoutMinutes) Type() string {
 	return "timeoutMinutes"
+}
+
+type timeoutSeconds time.Duration
+
+func (t *timeoutSeconds) String() string { return time.Duration(*t).String() }
+func (t *timeoutSeconds) Set(v string) error {
+        i, err := strconv.Atoi(v)
+        if err != nil {
+                return err
+        }
+        if i < 1 {
+                return fmt.Errorf("timeout must be greater than 0")
+        }
+        *t = timeoutSeconds(time.Duration(i) * time.Second)
+        return nil
+}
+func (t timeoutSeconds) Type() string {
+        return "timeoutSeconds"
 }
