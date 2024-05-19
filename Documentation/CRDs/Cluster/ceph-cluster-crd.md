@@ -247,6 +247,7 @@ This spec translates directly to Ceph's `public_network` and `host_network` conf
 Refer to [Ceph networking documentation](https://docs.ceph.com/docs/master/rados/configuration/network-config-ref/)
 for more details.
 
+
 The default, unspecified network provider cannot make use of these configurations.
 
 Ceph public and cluster network configurations are allowed to change, but this should be done with
