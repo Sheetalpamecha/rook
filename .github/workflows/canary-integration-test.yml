@@ -30,7 +30,7 @@ jobs:
     if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci')"
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -38,13 +38,6 @@ jobs:
         uses: ./.github/workflows/tmate_debug
         with:
           use-tmate: ${{ secrets.USE_TMATE }}
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup cluster resources
         uses: ./.github/workflows/canary-test-config
@@ -85,6 +78,22 @@ jobs:
           timeout 10 sh -c "until kubectl -n rook-ceph exec $toolbox -- python3 /etc/ceph/create-external-cluster-resources.py --rbd-data-pool-name replicapool; do echo 'waiting for script to succeed' && sleep 1; done"
           # print existing client auth
           kubectl -n rook-ceph exec $toolbox -- ceph auth ls
+
+      - name: test re-running of external script should result in same output
+        run: |
+          toolbox=$(kubectl get pod -l app=rook-ceph-tools -n rook-ceph -o jsonpath='{.items[*].metadata.name}')
+          kubectl -n rook-ceph exec $toolbox -- python3 /etc/ceph/create-external-cluster-resources.py --rbd-data-pool-name=replicapool | tee output1.txt
+          kubectl -n rook-ceph exec $toolbox -- python3 /etc/ceph/create-external-cluster-resources.py --rbd-data-pool-name=replicapool | tee output2.txt
+          if cmp output1.txt output2.txt; then
+            echo "files have same output"
+            rm output1.txt
+            rm output2.txt
+          else
+            echo "re-run with same flags changed the output, result in failure"
+            rm output1.txt
+            rm output2.txt
+            exit 1
+          fi
 
       - name: dry run external script create-external-cluster-resources.py
         run: |
@@ -164,7 +173,7 @@ jobs:
           kubectl -n rook-ceph exec $toolbox -- ceph auth ls
           # update the existing non-restricted client auth with the new ones
           kubectl -n rook-ceph exec $toolbox -- python3 /etc/ceph/create-external-cluster-resources.py --upgrade
-          # print ugraded client auth
+          # print upgraded client auth
           kubectl -n rook-ceph exec $toolbox -- ceph auth ls
 
       - name: test the upgrade flag for restricted auth user
@@ -175,7 +184,7 @@ jobs:
           # restricted auth user need to provide --rbd-data-pool-name,
           #  --k8s-cluster-name and --run-as-user flag while upgrading
           kubectl -n rook-ceph exec $toolbox -- python3 /etc/ceph/create-external-cluster-resources.py --upgrade --rbd-data-pool-name replicapool --k8s-cluster-name rookstorage  --run-as-user client.csi-rbd-node-rookstorage-replicapool
-          # print ugraded client auth
+          # print upgraded client auth
           kubectl -n rook-ceph exec $toolbox -- ceph auth get client.csi-rbd-node-rookstorage-replicapool
 
       - name: validate-rgw-endpoint
@@ -254,7 +263,7 @@ jobs:
     if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci')"
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -262,13 +271,6 @@ jobs:
         uses: ./.github/workflows/tmate_debug
         with:
           use-tmate: ${{ secrets.USE_TMATE }}
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup cluster resources
         uses: ./.github/workflows/canary-test-config
@@ -305,6 +307,15 @@ jobs:
           # waiting for toolbox operator image pod to get ready
           kubectl -n rook-ceph wait --for=condition=ready pod -l app=rook-ceph-tools-operator-image  --timeout=180s
 
+      - name: check s5cmd version in the toolbox image
+        run: |
+          toolbox=$(kubectl get pod -l app=rook-ceph-tools-operator-image -n rook-ceph -o jsonpath='{.items[*].metadata.name}')
+          s5cmd_version="$(kubectl -n rook-ceph exec ${toolbox} -- /usr/local/bin/s5cmd version)"
+          echo ${s5cmd_version} | grep -q "^v2.2.1"  || {
+             echo " Error: the version of s5cmd version in the  toolbox is not the expected v2.2.1 but ${s5cmd_version}"
+             exit 1
+          }
+
       - name: check-ownerreferences
         run: tests/scripts/github-action-helper.sh check_ownerreferences
 
@@ -319,20 +330,13 @@ jobs:
     if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci')"
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: consider debugging
         uses: ./.github/workflows/tmate_debug
         with:
           use-tmate: ${{ secrets.USE_TMATE }}
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup cluster resources
         uses: ./.github/workflows/canary-test-config
@@ -371,7 +375,7 @@ jobs:
     if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci')"
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -379,13 +383,6 @@ jobs:
         uses: ./.github/workflows/tmate_debug
         with:
           use-tmate: ${{ secrets.USE_TMATE }}
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup cluster resources
         uses: ./.github/workflows/canary-test-config
@@ -430,7 +427,7 @@ jobs:
     if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci')"
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -438,13 +435,6 @@ jobs:
         uses: ./.github/workflows/tmate_debug
         with:
           use-tmate: ${{ secrets.USE_TMATE }}
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup cluster resources
         uses: ./.github/workflows/canary-test-config
@@ -483,7 +473,7 @@ jobs:
     if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci')"
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -491,13 +481,6 @@ jobs:
         uses: ./.github/workflows/tmate_debug
         with:
           use-tmate: ${{ secrets.USE_TMATE }}
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup cluster resources
         uses: ./.github/workflows/canary-test-config
@@ -541,7 +524,7 @@ jobs:
     if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci')"
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -549,13 +532,6 @@ jobs:
         uses: ./.github/workflows/tmate_debug
         with:
           use-tmate: ${{ secrets.USE_TMATE }}
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup cluster resources
         uses: ./.github/workflows/canary-test-config
@@ -620,7 +596,7 @@ jobs:
     if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci')"
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -628,13 +604,6 @@ jobs:
         uses: ./.github/workflows/tmate_debug
         with:
           use-tmate: ${{ secrets.USE_TMATE }}
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup cluster resources
         uses: ./.github/workflows/canary-test-config
@@ -675,7 +644,7 @@ jobs:
     if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci')"
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -683,13 +652,6 @@ jobs:
         uses: ./.github/workflows/tmate_debug
         with:
           use-tmate: ${{ secrets.USE_TMATE }}
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup cluster resources
         uses: ./.github/workflows/canary-test-config
@@ -733,7 +695,7 @@ jobs:
     if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci')"
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -741,13 +703,6 @@ jobs:
         uses: ./.github/workflows/tmate_debug
         with:
           use-tmate: ${{ secrets.USE_TMATE }}
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup cluster resources
         uses: ./.github/workflows/canary-test-config
@@ -803,7 +758,7 @@ jobs:
     if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci')"
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -811,13 +766,6 @@ jobs:
         uses: ./.github/workflows/tmate_debug
         with:
           use-tmate: ${{ secrets.USE_TMATE }}
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup cluster resources
         uses: ./.github/workflows/canary-test-config
@@ -860,7 +808,7 @@ jobs:
     if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci')"
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -868,13 +816,6 @@ jobs:
         uses: ./.github/workflows/tmate_debug
         with:
           use-tmate: ${{ secrets.USE_TMATE }}
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup cluster resources
         uses: ./.github/workflows/canary-test-config
@@ -927,7 +868,7 @@ jobs:
     if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci')"
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -935,13 +876,6 @@ jobs:
         uses: ./.github/workflows/tmate_debug
         with:
           use-tmate: ${{ secrets.USE_TMATE }}
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup cluster resources
         uses: ./.github/workflows/canary-test-config
@@ -1015,7 +949,7 @@ jobs:
     if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci')"
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -1023,13 +957,6 @@ jobs:
         uses: ./.github/workflows/tmate_debug
         with:
           use-tmate: ${{ secrets.USE_TMATE }}
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup cluster resources
         uses: ./.github/workflows/canary-test-config
@@ -1083,7 +1010,7 @@ jobs:
     if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci')"
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -1091,13 +1018,6 @@ jobs:
         uses: ./.github/workflows/tmate_debug
         with:
           use-tmate: ${{ secrets.USE_TMATE }}
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup cluster resources
         uses: ./.github/workflows/canary-test-config
@@ -1143,7 +1063,7 @@ jobs:
     if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci')"
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -1151,13 +1071,6 @@ jobs:
         uses: ./.github/workflows/tmate_debug
         with:
           use-tmate: ${{ secrets.USE_TMATE }}
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup cluster resources
         uses: ./.github/workflows/canary-test-config
@@ -1389,7 +1302,7 @@ jobs:
           # snaps=$(kubectl -n rook-ceph exec deploy/rook-ceph-fs-mirror -- ceph --admin-daemon /var/run/ceph/$mirror_daemon fs mirror peer status myfs@1 $clusterfsid|jq -r '."/volumes/_nogroup/testsubvolume"."snaps_synced"')
           # echo "snapshots: $snaps"
           # if [ $num_snaps_target = $snaps ]
-          # then echo "Snaphots have synced."
+          # then echo "Snapshots have synced."
           # else echo "Snaps have not synced. NEEDS INVESTIGATION"
           # fi
 
@@ -1404,7 +1317,7 @@ jobs:
     if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci')"
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -1413,13 +1326,6 @@ jobs:
         uses: ./.github/workflows/tmate_debug
         with:
           use-tmate: ${{ secrets.USE_TMATE }}
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: run RGW multisite test
         uses: ./.github/workflows/rgw-multisite-test
@@ -1436,8 +1342,9 @@ jobs:
 
   encryption-pvc-kms-ibm-kp:
     runs-on: ubuntu-20.04
+    if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci')"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -1446,13 +1353,6 @@ jobs:
         uses: ./.github/workflows/tmate_debug
         with:
           use-tmate: ${{ secrets.USE_TMATE }}
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: run encryption KMS IBM Key Protect
         uses: ./.github/workflows/encryption-pvc-kms-ibm-kp
@@ -1477,7 +1377,7 @@ jobs:
     if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci')"
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -1486,13 +1386,6 @@ jobs:
         uses: ./.github/workflows/tmate_debug
         with:
           use-tmate: ${{ secrets.USE_TMATE }}
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup golang
         uses: actions/setup-go@v4
@@ -1534,13 +1427,16 @@ jobs:
         run: tests/scripts/github-action-helper.sh wait_for_prepare_pod
 
       - name: wait for ceph to be ready
-        run: IS_POD_NETWORK=true IS_MULTUS=true tests/scripts/github-action-helper.sh wait_for_ceph_to_be_ready osd_multus 2
+        run: IS_POD_NETWORK=true IS_MULTUS=true tests/scripts/github-action-helper.sh wait_for_ceph_to_be_ready osd 2
 
       - name: wait for ceph-csi configmap to be updated with network namespace
         run: tests/scripts/github-action-helper.sh wait_for_ceph_csi_configmap_to_be_updated
 
       - name: wait for cephnfs to be ready
         run: IS_POD_NETWORK=true IS_MULTUS=true tests/scripts/github-action-helper.sh wait_for_ceph_to_be_ready nfs 1
+
+      - name: check multus connections
+        run: tests/scripts/github-action-helper.sh test_multus_connections
 
       - name: test ceph-csi-rbd plugin restart
         run: tests/scripts/github-action-helper.sh test_csi_rbd_workload
@@ -1562,7 +1458,7 @@ jobs:
     if: "!contains(github.event.pull_request.labels.*.name, 'skip-ci')"
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -1571,13 +1467,6 @@ jobs:
         uses: ./.github/workflows/tmate_debug
         with:
           use-tmate: ${{ secrets.USE_TMATE }}
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup cluster resources
         uses: ./.github/workflows/canary-test-config

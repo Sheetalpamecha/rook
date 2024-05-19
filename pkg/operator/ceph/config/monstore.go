@@ -56,8 +56,22 @@ type Option struct {
 	Value string
 }
 
+// SetIfChanged sets a config in the centralized mon configuration database if the config has
+// changed value.
+// https://docs.ceph.com/docs/master/rados/configuration/ceph-conf/#monitor-configuration-database
+//
+// There is a bug through at least Ceph v18 where `ceph config get global <option>` does not work.
+// As a workaround it is possible to use `ceph config get client <option>` as long as the config
+// option won't be overridden by clients. SetIfChanged uses this workaround assuming it is valid.
+// Any new uses of this function should take extreme care when using `who="global"` to check that
+// the workaround is valid for usage with the given option.
+// Options validated for workaround by Ceph devs: public_network, cluster_network
 func (m *MonStore) SetIfChanged(who, option, value string) (bool, error) {
-	currentVal, err := m.Get(who, option)
+	getWho := who
+	if who == "global" {
+		getWho = "client"
+	}
+	currentVal, err := m.Get(getWho, option)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to get value %q", option)
 	}
@@ -220,7 +234,7 @@ func (m *MonStore) SetAll(clientName string, settings map[string]string) error {
 }
 
 func (m *MonStore) setAll(clientName string, settings map[string]string) ([]string, error) {
-	assimilateConfPath, err := os.CreateTemp("", "")
+	assimilateConfPath, err := os.CreateTemp(m.context.ConfigDir, "")
 	if err != nil {
 		return []string{}, errors.Wrapf(err, "failed to create assimilateConf temp dir for  %s.", clientName)
 	}
@@ -230,10 +244,15 @@ func (m *MonStore) setAll(clientName string, settings map[string]string) ([]stri
 		rook.TerminateFatal(errors.Wrapf(err, "failed to write config file"))
 	}
 
+	outFilePath := assimilateConfPath.Name() + ".out"
 	defer func() {
 		err := os.Remove(assimilateConfPath.Name())
 		if err != nil {
 			logger.Errorf("failed to remove file %q. %v", assimilateConfPath.Name(), err)
+		}
+		err = os.Remove(outFilePath)
+		if err != nil {
+			logger.Errorf("failed to remove file %q. %v", outFilePath, err)
 		}
 	}()
 
@@ -259,13 +278,13 @@ func (m *MonStore) setAll(clientName string, settings map[string]string) ([]stri
 	}
 	logger.Infof("applying ceph settings:\n%s", string(fileContent))
 
-	args := []string{"config", "assimilate-conf", "-i", assimilateConfPath.Name(), "-o", assimilateConfPath.Name() + ".out"}
+	args := []string{"config", "assimilate-conf", "-i", assimilateConfPath.Name(), "-o", outFilePath}
 	cephCmd := client.NewCephCommand(m.context, m.clusterInfo, args)
 
 	out, err := cephCmd.RunWithTimeout(exec.CephCommandsTimeout)
-	fileContent, readErr := os.ReadFile(assimilateConfPath.Name() + ".out")
+	fileContent, readErr := os.ReadFile(outFilePath)
 	if readErr != nil {
-		logger.Errorf("failed to open assimilate output file %s.out. %v", assimilateConfPath.Name(), readErr)
+		logger.Errorf("failed to open assimilate output file %s. %v", outFilePath, readErr)
 	}
 	if err != nil {
 		logger.Errorf("failed to run command ceph %s", args)
@@ -279,7 +298,7 @@ func (m *MonStore) setAll(clientName string, settings map[string]string) ([]stri
 		// read fileContent to ini format
 		iniContent, err := ini.Load(fileContent)
 		if err != nil {
-			return []string{}, errors.Wrapf(err, "failed to parse assimilate output file %s.out", assimilateConfPath.Name())
+			return []string{}, errors.Wrapf(err, "failed to parse assimilate output file %s", outFilePath)
 		}
 		// get the section for the client
 		section, err := iniContent.GetSection(clientName)

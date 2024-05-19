@@ -58,9 +58,11 @@ except ModuleNotFoundError:
 try:
     # for 2.7.x
     from urlparse import urlparse
+    from urllib import urlencode as urlencode
 except ModuleNotFoundError:
     # for 3.x
     from urllib.parse import urlparse
+    from urllib.parse import urlencode as urlencode
 
 try:
     from base64 import encodestring
@@ -114,8 +116,8 @@ class DummyRados(object):
             self.cmd_names["mgr services"]
         ] = """{"dashboard":"https://ceph-dashboard:8443/","prometheus":"http://ceph-dashboard-db:9283/"}"""
         self.cmd_output_map[
-            """{"caps": ["mon", "allow r, allow command quorum_status", "osd", "allow rwx pool=default.rgw.meta, allow r pool=.rgw.root, allow rw pool=default.rgw.control, allow x pool=default.rgw.buckets.index"], "entity": "client.healthchecker", "format": "json", "prefix": "auth get-or-create"}"""
-        ] = """[{"entity":"client.healthchecker","key":"AQDFkbNeft5bFRAATndLNUSEKruozxiZi3lrdA==","caps":{"mon":"allow r, allow command quorum_status","osd":"allow rwx pool=default.rgw.meta, allow r pool=.rgw.root, allow rw pool=default.rgw.control, allow x pool=default.rgw.buckets.index"}}]"""
+            """{"caps": ["mon", "allow r, allow command quorum_status", "osd", "profile rbd-read-only, allow rwx pool=default.rgw.meta, allow r pool=.rgw.root, allow rw pool=default.rgw.control, allow x pool=default.rgw.buckets.index"], "entity": "client.healthchecker", "format": "json", "prefix": "auth get-or-create"}"""
+        ] = """[{"entity":"client.healthchecker","key":"AQDFkbNeft5bFRAATndLNUSEKruozxiZi3lrdA==","caps":{"mon":"allow r, allow command quorum_status","osd":"profile rbd-read-only, allow rwx pool=default.rgw.meta, allow r pool=.rgw.root, allow rw pool=default.rgw.control, allow x pool=default.rgw.buckets.index"}}]"""
         self.cmd_output_map[
             """{"caps": ["mon", "profile rbd, allow command 'osd blocklist'", "osd", "profile rbd"], "entity": "client.csi-rbd-node", "format": "json", "prefix": "auth get-or-create"}"""
         ] = """[{"entity":"client.csi-rbd-node","key":"AQBOgrNeHbK1AxAAubYBeV8S1U/GPzq5SVeq6g==","caps":{"mon":"profile rbd, allow command 'osd blocklist'","osd":"profile rbd"}}]"""
@@ -135,8 +137,11 @@ class DummyRados(object):
             """{"caps": ["mon", "allow r, allow command 'osd blocklist'", "mgr", "allow rw", "osd", "allow rw tag cephfs metadata=myfs"], "entity": "client.csi-cephfs-provisioner-openshift-storage-myfs", "format": "json", "prefix": "auth get-or-create"}"""
         ] = """[{"entity":"client.csi-cephfs-provisioner-openshift-storage-myfs","key":"CQBOgrNeAFgcGBAAvGqKOAD0D3xxmVY0R912dg==","caps":{"mgr":"allow rw","mon":"allow r, allow command 'osd blocklist'","osd":"allow rw tag cephfs metadata=myfs"}}]"""
         self.cmd_output_map[
-            """{"caps": ["mon", "allow r, allow command quorum_status, allow command version", "mgr", "allow command config", "osd", "allow rwx pool=default.rgw.meta, allow r pool=.rgw.root, allow rw pool=default.rgw.control, allow rx pool=default.rgw.log, allow x pool=default.rgw.buckets.index"], "entity": "client.healthchecker", "format": "json", "prefix": "auth get-or-create"}"""
-        ] = """[{"entity":"client.healthchecker","key":"AQDFkbNeft5bFRAATndLNUSEKruozxiZi3lrdA==","caps":{"mon": "allow r, allow command quorum_status, allow command version", "mgr": "allow command config", "osd": "allow rwx pool=default.rgw.meta, allow r pool=.rgw.root, allow rw pool=default.rgw.control, allow rx pool=default.rgw.log, allow x pool=default.rgw.buckets.index"}}]"""
+            """{"caps": ["mon", "allow r, allow command quorum_status, allow command version", "mgr", "allow command config", "osd", "profile rbd-read-only, allow rwx pool=default.rgw.meta, allow r pool=.rgw.root, allow rw pool=default.rgw.control, allow rx pool=default.rgw.log, allow x pool=default.rgw.buckets.index"], "entity": "client.healthchecker", "format": "json", "prefix": "auth get-or-create"}"""
+        ] = """[{"entity":"client.healthchecker","key":"AQDFkbNeft5bFRAATndLNUSEKruozxiZi3lrdA==","caps":{"mon": "allow r, allow command quorum_status, allow command version", "mgr": "allow command config", "osd": "profile rbd-read-only, allow rwx pool=default.rgw.meta, allow r pool=.rgw.root, allow rw pool=default.rgw.control, allow rx pool=default.rgw.log, allow x pool=default.rgw.buckets.index"}}]"""
+        self.cmd_output_map[
+            """{"caps": ["mon", "allow r, allow command quorum_status, allow command version", "mgr", "allow command config", "osd", "profile rbd-read-only, allow rwx pool=default.rgw.meta, allow r pool=.rgw.root, allow rw pool=default.rgw.control, allow rx pool=default.rgw.log, allow x pool=default.rgw.buckets.index"], "entity": "client.healthchecker", "format": "json", "prefix": "auth caps"}"""
+        ] = """[{"entity":"client.healthchecker","key":"AQDFkbNeft5bFRAATndLNUSRKruozxiZi3lrdA==","caps":{"mon": "allow r, allow command quorum_status, allow command version", "mgr": "allow command config", "osd": "profile rbd-read-only, allow rwx pool=default.rgw.meta, allow r pool=.rgw.root, allow rw pool=default.rgw.control, allow rx pool=default.rgw.log, allow x pool=default.rgw.buckets.index"}}]"""
         self.cmd_output_map[
             """{"format": "json", "prefix": "mgr services"}"""
         ] = """{"dashboard": "http://rook-ceph-mgr-a-57cf9f84bc-f4jnl:7000/", "prometheus": "http://rook-ceph-mgr-a-57cf9f84bc-f4jnl:9283/"}"""
@@ -145,7 +150,7 @@ class DummyRados(object):
         ] = """{"dashboard": "http://rook-ceph-mgr-a-57cf9f84bc-f4jnl:7000/", "prometheus": "http://rook-ceph-mgr-a-57cf9f84bc-f4jnl:9283/"}"""
         self.cmd_output_map[
             """{"entity": "client.healthchecker", "format": "json", "prefix": "auth get"}"""
-        ] = """[{"entity":"client.healthchecker","key":"AQDFkbNeft5bFRAATndLNUSEKruozxiZi3lrdA==","caps":{"mon": "allow r, allow command quorum_status, allow command version", "mgr": "allow command config", "osd": "allow rwx pool=default.rgw.meta, allow r pool=.rgw.root, allow rw pool=default.rgw.control, allow rx pool=default.rgw.log, allow x pool=default.rgw.buckets.index"}}]"""
+        ] = """[{"entity":"client.healthchecker","key":"AQDFkbNeft5bFRAATndLNUSEKruozxiZi3lrdA==","caps":{"mon": "allow r, allow command quorum_status, allow command version", "mgr": "allow command config", "osd": "profile rbd-read-only, allow rwx pool=default.rgw.meta, allow r pool=.rgw.root, allow rw pool=default.rgw.control, allow rx pool=default.rgw.log, allow x pool=default.rgw.buckets.index"}}]"""
         self.cmd_output_map[
             """{"entity": "client.csi-cephfs-node", "format": "json", "prefix": "auth get"}"""
         ] = """[]"""
@@ -471,7 +476,7 @@ class RadosJSON:
             "--upgrade",
             action="store_true",
             default=False,
-            help="Upgrades the cephCSIKeyrings(For example: client.csi-cephfs-provisioner) with new permissions needed for the new cluster version and older permission will still be applied."
+            help="Upgrades the cephCSIKeyrings(For example: client.csi-cephfs-provisioner) and client.healthchecker ceph users with new permissions needed for the new cluster version and older permission will still be applied."
             + "Sample run: `python3 /etc/ceph/create-external-cluster-resources.py --upgrade`, this will upgrade all the default csi users(non-restricted)"
             + "For restricted users(For example: client.csi-cephfs-provisioner-openshift-storage-myfs), users created using --restricted-auth-permission flag need to pass mandatory flags"
             + "mandatory flags: '--rbd-data-pool-name, --k8s-cluster-name and --run-as-user' flags while upgrading"
@@ -552,7 +557,7 @@ class RadosJSON:
             )
 
     def _invalid_endpoint(self, endpoint_str):
-        # seprating port, by getting last split of `:` delimiter
+        # separating port, by getting last split of `:` delimiter
         try:
             endpoint_str_ip, port = endpoint_str.rsplit(":", 1)
         except ValueError:
@@ -629,15 +634,6 @@ class RadosJSON:
         self.output_file = self._arg_parser.output
         self.ceph_conf = self._arg_parser.ceph_conf
         self.ceph_keyring = self._arg_parser.keyring
-        self.MIN_USER_CAP_PERMISSIONS = {
-            "mgr": "allow command config",
-            "mon": "allow r, allow command quorum_status, allow command version",
-            "osd": "allow rwx pool={0}.rgw.meta, "
-            + "allow r pool=.rgw.root, "
-            + "allow rw pool={0}.rgw.control, "
-            + "allow rx pool={0}.rgw.log, "
-            + "allow x pool={0}.rgw.buckets.index",
-        }
         # if user not provided, give a default user
         if not self.run_as_user and not self._arg_parser.upgrade:
             self.run_as_user = self.EXTERNAL_USER_NAME
@@ -779,7 +775,10 @@ class RadosJSON:
                 json_out.get("mgrmap", {}).get("services", {}).get("prometheus", "")
             )
             if not monitoring_endpoint:
-                return "", ""
+                raise ExecutionFailureException(
+                    "can't find monitoring_endpoint, prometheus module might not be enabled, "
+                    "enable the module by running 'ceph mgr module enable prometheus'"
+                )
             # now check the stand-by mgr-s
             standby_arr = json_out.get("mgrmap", {}).get("standbys", [])
             for each_standby in standby_arr:
@@ -969,6 +968,16 @@ class RadosJSON:
 
         return caps, entity
 
+    def get_healthchecker_caps_and_entity(self):
+        entity = "client.healthchecker"
+        caps = {
+            "mon": "allow r, allow command quorum_status, allow command version",
+            "mgr": "allow command config",
+            "osd": f"profile rbd-read-only, allow rwx pool={self._arg_parser.rgw_pool_prefix}.rgw.meta, allow r pool=.rgw.root, allow rw pool={self._arg_parser.rgw_pool_prefix}.rgw.control, allow rx pool={self._arg_parser.rgw_pool_prefix}.rgw.log, allow x pool={self._arg_parser.rgw_pool_prefix}.rgw.buckets.index",
+        }
+
+        return caps, entity
+
     def get_caps_and_entity(self, user_name):
         if "client.csi-cephfs-provisioner" in user_name:
             if "client.csi-cephfs-provisioner" != user_name:
@@ -986,6 +995,10 @@ class RadosJSON:
             if "client.csi-rbd-node" != user_name:
                 self._arg_parser.restricted_auth_permission = True
             return self.get_rbd_node_caps_and_entity()
+        if "client.healthchecker" in user_name:
+            if "client.healthchecker" != user_name:
+                self._arg_parser.restricted_auth_permission = True
+            return self.get_healthchecker_caps_and_entity()
 
         raise ExecutionFailureException(
             f"no user found with user_name: {user_name}, "
@@ -1131,22 +1144,15 @@ class RadosJSON:
                     f"Using the data-pool: '{self._arg_parser.cephfs_data_pool_name}'\n"
                 )
 
-    def create_checkerKey(self):
+    def create_checkerKey(self, user):
+        caps, entity = self.get_caps_and_entity(user)
         cmd_json = {
             "prefix": "auth get-or-create",
-            "entity": self.run_as_user,
-            "caps": [
-                "mon",
-                self.MIN_USER_CAP_PERMISSIONS["mon"],
-                "mgr",
-                self.MIN_USER_CAP_PERMISSIONS["mgr"],
-                "osd",
-                self.MIN_USER_CAP_PERMISSIONS["osd"].format(
-                    self._arg_parser.rgw_pool_prefix
-                ),
-            ],
+            "entity": entity,
+            "caps": [cap for cap_list in list(caps.items()) for cap in cap_list],
             "format": "json",
         }
+
         if self._arg_parser.dry_run:
             return self.dry_run(
                 "ceph "
@@ -1156,6 +1162,11 @@ class RadosJSON:
                 + " "
                 + " ".join(cmd_json["caps"])
             )
+        # check if user already exist
+        user_key = self.check_user_exist(entity)
+        if user_key != "":
+            return user_key
+
         ret_val, json_out, err_msg = self._common_cmd_json_gen(cmd_json)
         # if there is an unsuccessful attempt,
         if ret_val != 0 or len(json_out) == 0:
@@ -1312,6 +1323,14 @@ class RadosJSON:
                 f"The provided pool, '{self._arg_parser.rbd_data_pool_name}', does not exist"
             )
 
+    def init_rbd_pool(self):
+        if isinstance(self.cluster, DummyRados):
+            return
+        rbd_pool_name = self._arg_parser.rbd_data_pool_name
+        ioctx = self.cluster.open_ioctx(rbd_pool_name)
+        rbd_inst = rbd.RBD()
+        rbd_inst.pool_init(ioctx, True)
+
     def validate_rados_namespace(self):
         rbd_pool_name = self._arg_parser.rbd_data_pool_name
         rados_namespace = self._arg_parser.rados_namespace
@@ -1378,7 +1397,7 @@ class RadosJSON:
         rgw_endpoint = self._arg_parser.rgw_endpoint
         base_url = base_url + "://" + rgw_endpoint + "/admin/info?"
         params = {"format": "json"}
-        request_url = base_url + urllib.parse.urlencode(params)
+        request_url = base_url + urlencode(params)
 
         try:
             r = requests.get(
@@ -1480,6 +1499,7 @@ class RadosJSON:
             self._arg_parser.k8s_cluster_name.lower()
         )  # always convert cluster name to lowercase characters
         self.validate_rbd_pool()
+        self.init_rbd_pool()
         self.validate_rados_namespace()
         self._excluded_keys.add("K8S_CLUSTER_NAME")
         self.get_cephfs_data_pool_details()
@@ -1488,7 +1508,9 @@ class RadosJSON:
         self.out_map["ROOK_EXTERNAL_FSID"] = self.get_fsid()
         self.out_map["ROOK_EXTERNAL_USERNAME"] = self.run_as_user
         self.out_map["ROOK_EXTERNAL_CEPH_MON_DATA"] = self.get_ceph_external_mon_data()
-        self.out_map["ROOK_EXTERNAL_USER_SECRET"] = self.create_checkerKey()
+        self.out_map["ROOK_EXTERNAL_USER_SECRET"] = self.create_checkerKey(
+            "client.healthchecker"
+        )
         self.out_map["ROOK_EXTERNAL_DASHBOARD_LINK"] = self.get_ceph_dashboard_link()
         (
             self.out_map["CSI_RBD_NODE_SECRET"],
@@ -1814,11 +1836,27 @@ class RadosJSON:
             "client.csi-cephfs-provisioner",
             "client.csi-rbd-node",
             "client.csi-rbd-provisioner",
+            "client.healthchecker",
         ]
         if self.run_as_user != "" and self.run_as_user not in users:
             users.append(self.run_as_user)
         for user in users:
             self.upgrade_user_permissions(user)
+
+    def get_rgw_pool_name_during_upgrade(self, user, caps):
+        if user == "client.healthchecker":
+            # when admin has not provided rgw pool name during upgrade,
+            # get the rgw pool name from client.healthchecker user which was used during connection
+            if not self._arg_parser.rgw_pool_prefix:
+                # To get value 'default' which is rgw pool name from 'allow rwx pool=default.rgw.meta'
+                pattern = r"pool=(.*?)\.rgw\.meta"
+                match = re.search(pattern, caps)
+                if match:
+                    self._arg_parser.rgw_pool_prefix = match.group(1)
+                else:
+                    raise ExecutionFailureException(
+                        "failed to get rgw pool name for upgrade"
+                    )
 
     def upgrade_user_permissions(self, user):
         # check whether the given user exists or not
@@ -1828,6 +1866,7 @@ class RadosJSON:
             print(f"user {user} not found for upgrading.")
             return
         existing_caps = json_out[0]["caps"]
+        self.get_rgw_pool_name_during_upgrade(user, str(existing_caps))
         new_cap, _ = self.get_caps_and_entity(user)
         cap_keys = ["mon", "mgr", "osd", "mds"]
         caps = []

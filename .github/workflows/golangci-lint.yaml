@@ -24,13 +24,12 @@ jobs:
     name: golangci-lint
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v4
         with:
           go-version: "1.21"
-          cache: false
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
@@ -45,3 +44,10 @@ jobs:
 
           # Optional: show only new issues if it's a pull request. The default value is `false`.
           # only-new-issues: true
+
+  govulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: govulncheck
+        uses: golang/govulncheck-action@v1

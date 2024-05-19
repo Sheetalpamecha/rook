@@ -21,16 +21,9 @@ jobs:
         kubernetes-versions: ["v1.22.17", "v1.24.16", "v1.26.7", "v1.28.0"]
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup cluster resources
         uses: ./.github/workflows/integration-test-config-latest-k8s
@@ -69,16 +62,9 @@ jobs:
         kubernetes-versions: ["v1.22.17", "v1.24.16", "v1.26.7", "v1.28.0"]
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup latest cluster resources
         uses: ./.github/workflows/integration-test-config-latest-k8s
@@ -116,16 +102,9 @@ jobs:
         kubernetes-versions: ["v1.22.17", "v1.24.16", "v1.26.7", "v1.28.0"]
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup latest cluster resources
         uses: ./.github/workflows/integration-test-config-latest-k8s
@@ -162,16 +141,9 @@ jobs:
         kubernetes-versions: ["v1.22.17", "v1.24.16", "v1.26.7", "v1.28.0"]
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup latest cluster resources
         uses: ./.github/workflows/integration-test-config-latest-k8s
@@ -208,16 +180,9 @@ jobs:
         kubernetes-versions: ["v1.22.17", "v1.25.12", "v1.28.0"]
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup cluster resources
         uses: ./.github/workflows/integration-test-config-latest-k8s
@@ -257,16 +222,9 @@ jobs:
         kubernetes-versions: ["v1.22.17", "v1.28.0"]
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: true
 
       - name: setup latest cluster resources
         uses: ./.github/workflows/integration-test-config-latest-k8s

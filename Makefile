@@ -119,8 +119,10 @@ build.version:
 	@echo "$(VERSION)" > $(OUTPUT_DIR)/version
 
 # Change how CRDs are generated for CSVs
+ifneq ($(REAL_HOST_PLATFORM),darwin_arm64)
 build.common: export NO_OB_OBC_VOL_GEN=true
 build.common: export MAX_DESC_LEN=0
+endif
 build.common: export SKIP_GEN_CRD_DOCS=true
 build.common: build.version helm.build mod.check crds gen-rbac
 	@$(MAKE) go.init
@@ -197,6 +199,7 @@ crds: $(CONTROLLER_GEN) $(YQ)
 	@echo Updating CRD manifests
 	@build/crds/build-crds.sh $(CONTROLLER_GEN) $(YQ)
 	@GOBIN=$(GOBIN) build/crds/generate-crd-docs.sh
+	@build/crds/validate-csv-crd-list.sh
 
 gen-rbac: $(HELM) $(YQ) ## Generate RBAC from Helm charts
 	@# output only stdout to the file; stderr for debugging should keep going to stderr
@@ -219,13 +222,13 @@ check-helm-docs:
 	@git diff --exit-code || { \
 	echo "Please run 'make helm-docs' locally, commit the updated docs, and push the change. See https://rook.io/docs/rook/latest/Contributing/documentation/#making-docs" ; \
 	exit 2 ; \
-	}; 
+	};
 check-docs:
 	@$(MAKE) docs
 	@git diff --exit-code || { \
 	echo "Please run 'make docs' locally, commit the updated docs, and push the change." ; \
 	exit 2 ; \
-	}; 
+	};
 
 
 docs-preview: ## Preview the documentation through mkdocs

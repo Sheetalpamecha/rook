@@ -23,6 +23,14 @@ to also change `ROOK_OPERATOR_NAMESPACE` to create a new Rook Operator for each 
 forget to set `ROOK_CURRENT_NAMESPACE_ONLY`), or you can leave it at the same value for every
 Ceph cluster if you only wish to have one Operator manage all Ceph clusters.
 
+If the operator namespace is different from the cluster namespace, the operator namespace must be
+created before running the steps below. The cluster namespace does not need to be created first,
+as it will be created by `common.yaml` in the script below.
+
+```console
+kubectl create namespace $ROOK_OPERATOR_NAMESPACE
+```
+
 This will help you manage namespaces more easily, but you should still make sure the resources are
 configured to your liking.
 
@@ -47,12 +55,23 @@ kubectl apply -f common.yaml -f operator.yaml -f cluster.yaml # add other files 
 
 ## Deploying a second cluster
 
-If you wish to create a new CephCluster in a different namespace than `rook-ceph` while using a single operator to manage both clusters execute the following:
+If you wish to create a new CephCluster in a separate namespace, you can easily do so
+by modifying the `ROOK_OPERATOR_NAMESPACE` and `SECOND_ROOK_CLUSTER_NAMESPACE` values in the
+below instructions. The default configuration in `common-second-cluster.yaml` is already
+set up to utilize `rook-ceph` for the operator and `rook-ceph-secondary` for the cluster.
+There's no need to run the `sed` command if you prefer to use these default values.
 
 ```console
 cd deploy/examples
+export ROOK_OPERATOR_NAMESPACE="rook-ceph"
+export SECOND_ROOK_CLUSTER_NAMESPACE="rook-ceph-secondary"
 
-NAMESPACE=rook-ceph-secondary envsubst < common-second-cluster.yaml | kubectl create -f -
+sed -i.bak \
+    -e "s/\(.*\):.*# namespace:operator/\1: $ROOK_OPERATOR_NAMESPACE # namespace:operator/g" \
+    -e "s/\(.*\):.*# namespace:cluster/\1: $SECOND_ROOK_CLUSTER_NAMESPACE # namespace:cluster/g" \
+  common-second-cluster.yaml
+
+kubectl create -f common-second-cluster.yaml
 ```
 
 This will create all the necessary RBACs as well as the new namespace. The script assumes that `common.yaml` was already created.
@@ -363,12 +382,17 @@ ceph osd primary-affinity osd.0 0
 
 ## OSD Dedicated Network
 
+!!! tip
+    This documentation is left for historical purposes. It is still valid, but Rook offers native
+    support for this feature via the
+    [CephCluster network configuration](../../CRDs/Cluster/ceph-cluster-crd.md#ceph-public-and-cluster-networks).
+
 It is possible to configure ceph to leverage a dedicated network for the OSDs to
-communicate across. A useful overview is the [CEPH Networks](http://docs.ceph.com/docs/master/rados/configuration/network-config-ref/#ceph-networks)
+communicate across. A useful overview is the [Ceph Networks](http://docs.ceph.com/docs/master/rados/configuration/network-config-ref/#ceph-networks)
 section of the Ceph documentation. If you declare a cluster network, OSDs will
-route heartbeat, object replication and recovery traffic over the cluster
+route heartbeat, object replication, and recovery traffic over the cluster
 network. This may improve performance compared to using a single network,
-especially when slower network technologies are used, with the tradeoff of
+especially when slower network technologies are used. The tradeoff is
 additional expense and subtle failure modes.
 
 Two changes are necessary to the configuration to enable this capability:
@@ -404,7 +428,7 @@ apiVersion: v1
 data:
   config: |
     [global]
-    public network =  10.0.7.0/24
+    public network = 10.0.7.0/24
     cluster network = 10.0.10.0/24
     public addr = ""
     cluster addr = ""

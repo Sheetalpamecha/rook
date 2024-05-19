@@ -26,7 +26,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rook/rook/pkg/clusterd"
 	cephclient "github.com/rook/rook/pkg/daemon/ceph/client"
-	"github.com/rook/rook/pkg/operator/ceph/cluster/osd"
 	oposd "github.com/rook/rook/pkg/operator/ceph/cluster/osd"
 	"github.com/rook/rook/pkg/operator/ceph/cluster/osd/config"
 	cephver "github.com/rook/rook/pkg/operator/ceph/version"
@@ -1192,7 +1191,7 @@ func TestInitializeBlockPVC(t *testing.T) {
 	assert.Equal(t, "", walBlockPath)
 
 	// Test for condition when osd is prepared with existing osd ID
-	a = &OsdAgent{clusterInfo: clusterInfo, nodeName: "node1", storeConfig: config.StoreConfig{StoreType: "bluestore"}, replaceOSD: &osd.OSDReplaceInfo{ID: 3, Path: "/dev/sda"}}
+	a = &OsdAgent{clusterInfo: clusterInfo, nodeName: "node1", storeConfig: config.StoreConfig{StoreType: "bluestore"}, replaceOSD: &oposd.OSDReplaceInfo{ID: 3, Path: "/dev/sda"}}
 	devices = &DeviceOsdMapping{
 		Entries: map[string]*DeviceOsdIDEntry{
 			"data": {Data: -1, Metadata: nil, Config: DesiredDevice{Name: "/mnt/set1-data-0-rpf2k"}, DeviceInfo: &sys.LocalDisk{RealPath: "/dev/sda"}},
@@ -1213,7 +1212,7 @@ func TestInitializeBlockPVC(t *testing.T) {
 	assert.Equal(t, "", walBlockPath)
 
 	// Test for condition that --osd-id is not passed for the devices that don't match the OSD to be replaced.
-	a = &OsdAgent{clusterInfo: clusterInfo, nodeName: "node1", storeConfig: config.StoreConfig{StoreType: "bluestore"}, replaceOSD: &osd.OSDReplaceInfo{ID: 3, Path: "/dev/sda"}}
+	a = &OsdAgent{clusterInfo: clusterInfo, nodeName: "node1", storeConfig: config.StoreConfig{StoreType: "bluestore"}, replaceOSD: &oposd.OSDReplaceInfo{ID: 3, Path: "/dev/sda"}}
 	devices = &DeviceOsdMapping{
 		Entries: map[string]*DeviceOsdIDEntry{
 			"data": {Data: -1, Metadata: nil, Config: DesiredDevice{Name: "/mnt/set1-data-0-rpf2k"}, DeviceInfo: &sys.LocalDisk{RealPath: "/dev/sdb"}},
@@ -1600,7 +1599,7 @@ func TestAllowRawMode(t *testing.T) {
 		wantErr bool
 	}{
 		{"raw simple scenario supported", fields{"", config.StoreConfig{}}, args{&clusterd.Context{}, false}, true, false},
-		{"lvm complex scenario not supported: encrypted", fields{"", config.StoreConfig{EncryptedDevice: true}}, args{&clusterd.Context{}, false}, false, false},
+		{"raw encrypted scenario supported", fields{"", config.StoreConfig{EncryptedDevice: true}}, args{&clusterd.Context{}, false}, true, false},
 		{"lvm complex scenario not supported: osd per device > 1", fields{"", config.StoreConfig{OSDsPerDevice: 2}}, args{&clusterd.Context{}, false}, false, false},
 		{"lvm complex scenario not supported: metadata dev", fields{"/dev/sdb", config.StoreConfig{}}, args{&clusterd.Context{}, false}, false, false},
 		{"lvm complex scenario not supported: metadata dev", fields{"/dev/sdb", config.StoreConfig{}}, args{&clusterd.Context{}, false}, false, false},
@@ -1740,4 +1739,32 @@ func TestIsSafeToUseRawMode(t *testing.T) {
 		assert.False(t, isSafeToUseRawMode(device, cephWithAtariPatch))
 		assert.False(t, isSafeToUseRawMode(device, cephNextMajor))
 	})
+}
+
+func TestLVMModeAllowed(t *testing.T) {
+	device := &DeviceOsdIDEntry{
+		Config: DesiredDevice{
+			Name: "vda",
+		},
+		DeviceInfo: &sys.LocalDisk{
+			Type: sys.DiskType,
+		},
+	}
+	storeConfig := &config.StoreConfig{EncryptedDevice: false}
+
+	// disk
+	assert.True(t, lvmModeAllowed(device, storeConfig))
+
+	// lvm
+	device.DeviceInfo.Type = sys.LVMType
+	assert.False(t, lvmModeAllowed(device, storeConfig))
+
+	// non-encrypted part
+	device.DeviceInfo.Type = sys.PartType
+	assert.True(t, lvmModeAllowed(device, storeConfig))
+
+	// encrypted part
+	storeConfig.EncryptedDevice = true
+	assert.False(t, lvmModeAllowed(device, storeConfig))
+
 }
