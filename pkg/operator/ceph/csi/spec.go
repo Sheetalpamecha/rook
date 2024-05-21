@@ -31,6 +31,7 @@ import (
 	"github.com/pkg/errors"
 	apps "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	k8scsi "k8s.io/api/storage/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -144,7 +145,7 @@ var (
 	DefaultCSIAddonsImage   = "quay.io/csiaddons/k8s-sidecar:v0.7.0"
 
 	// image pull policy
-	DefaultCSIImagePullPolicy = string(corev1.PullIfNotPresent)
+	DefaultCSIImagePullPolicy = string(v1.PullIfNotPresent)
 
 	// Local package template path for RBD
 	//go:embed template/rbd/csi-rbdplugin.yaml
@@ -715,7 +716,7 @@ func (r *ReconcileCSI) applyCephClusterNetworkConfig(ctx context.Context, object
 	}
 	for _, cephCluster := range cephClusters.Items {
 		if cephCluster.Spec.Network.IsMultus() {
-			err = k8sutil.ApplyMultus(cephCluster.GetNamespace(), &cephCluster.Spec.Network, objectMeta)
+			err = k8sutil.ApplyMultus(cephCluster.Spec.Network, objectMeta)
 			if err != nil {
 				return errors.Wrapf(err, "failed to apply multus configuration to CephCluster %q", cephCluster.Name)
 			}
@@ -741,7 +742,7 @@ func (r *ReconcileCSI) validateCSIVersion(ownerInfo *k8sutil.OwnerInfo) (*CephCS
 		[]string{"--version"},
 		r.opConfig.Image,
 		CSIParam.CSIPluginImage,
-		corev1.PullPolicy(CSIParam.ImagePullPolicy),
+		v1.PullPolicy(CSIParam.ImagePullPolicy),
 	)
 
 	if err != nil {
@@ -850,7 +851,7 @@ func (r *ReconcileCSI) configureHolder(driver driverDetails, c ClusterDetail, tp
 	// If multus is enabled, add the multus plugin label
 	if c.cluster.Spec.Network.IsMultus() {
 		// Apply Multus annotations to daemonset spec
-		err = k8sutil.ApplyMultus(c.cluster.GetNamespace(), &c.cluster.Spec.Network, &cephPluginHolder.Spec.Template.ObjectMeta)
+		err = k8sutil.ApplyMultus(c.cluster.Spec.Network, &cephPluginHolder.Spec.Template.ObjectMeta)
 		if err != nil {
 			return errors.Wrapf(err, "failed to apply multus configuration for holder %q in cluster %q", cephPluginHolder.Name, c.cluster.Namespace)
 		}

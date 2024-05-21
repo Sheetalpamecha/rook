@@ -31,7 +31,7 @@ Settings can be specified at the global level to apply to the cluster as a whole
   To ensure a consistent version of the image is running across all nodes in the cluster, it is recommended to use a very specific image version.
   Tags also exist that would give the latest version, but they are only recommended for test environments. For example, the tag `v17` will be updated each time a new Quincy build is released.
   Using the `v17` tag is not recommended in production because it may lead to inconsistent versions of the image running across different nodes in the cluster.
-    * `allowUnsupported`: If `true`, allow an unsupported major version of the Ceph release. Currently `pacific`, `quincy`, and `reef` are supported. Future versions such as `squid` (v19) would require this to be set to `true`. Should be set to `false` in production.
+    * `allowUnsupported`: If `true`, allow an unsupported major version of the Ceph release. Currently `pacific` and `quincy` are supported. Future versions such as `reef` (v18) would require this to be set to `true`. Should be set to `false` in production.
   `imagePullPolicy`: The image pull policy for the ceph daemon pods. Possible values are `Always`, `IfNotPresent`, and `Never`.
   The default is `IfNotPresent`.
 * `dataDirHostPath`: The path on the host ([hostPath](https://kubernetes.io/docs/concepts/storage/volumes/#hostpath)) where config and data should be stored for each of the services. If the directory does not exist, it will be created. Because this directory persists on the host, it will remain after pods are deleted. Following paths and any of their subpaths **must not be used**: `/etc/ceph`, `/rook` or `/var/log/ceph`.
@@ -85,7 +85,6 @@ For more details on the mons and when to choose a number other than `3`, see the
     * `onlyApplyOSDPlacement`: Whether the placement specific for OSDs is merged with the `all` placement. If `false`, the OSD placement will be merged with the `all` placement. If true, the `OSD placement will be applied` and the `all` placement will be ignored. The placement for OSDs is computed from several different places depending on the type of OSD:
         * For non-PVCs: `placement.all` and `placement.osd`
         * For PVCs: `placement.all` and inside the storageClassDeviceSets from the `placement` or `preparePlacement`
-    * `flappingRestartIntervalHours`: Defines the time for which an OSD pod will sleep before restarting, if it stopped due to flapping. Flapping occurs where OSDs are marked `down` by Ceph more than 5 times in 600 seconds. The OSDs will stay down when flapping since they likely have a bad disk or other issue that needs investigation. If the issue with the OSD is fixed manually, the OSD pod can be manually restarted. The sleep is disabled if this interval is set to 0.
 * `disruptionManagement`: The section for configuring management of daemon disruptions
     * `managePodBudgets`: if `true`, the operator will create and manage PodDisruptionBudgets for OSD, Mon, RGW, and MDS daemons. OSD PDBs are managed dynamically via the strategy outlined in the [design](https://github.com/rook/rook/blob/master/design/ceph/ceph-managed-disruptionbudgets.md). The operator will block eviction of OSDs by default and unblock them safely when drains are detected.
     * `osdMaintenanceTimeout`: is a duration in minutes that determines how long an entire failureDomain like `region/zone/host` will be held in `noout` (in addition to the default DOWN/OUT interval) when it is draining. This is only relevant when  `managePodBudgets` is `true`. The default value is `30` minutes.
@@ -101,7 +100,7 @@ Official releases of Ceph Container images are available from [Docker Hub](https
 These are general purpose Ceph container with all necessary daemons and dependencies installed.
 
 | TAG                  | MEANING                                                   |
-|----------------------|-----------------------------------------------------------|
+| -------------------- | --------------------------------------------------------- |
 | vRELNUM              | Latest release in this series (e.g., *v17* = Quincy)      |
 | vRELNUM.Y            | Latest stable release in this stable series (e.g., v17.2) |
 | vRELNUM.Y.Z          | A specific release (e.g., v17.2.6)                        |
@@ -188,12 +187,7 @@ If not specified, the default SDN will be used.
 Configure the network that will be enabled for the cluster and services.
 
 * `provider`: Specifies the network provider that will be used to connect the network interface. You can choose between `host`, and `multus`.
-* `selectors`: Used for `multus` provider only. Select NetworkAttachmentDefinitions to use for Ceph networks.
-  * `public`: Select the NetworkAttachmentDefinition to use for the public network.
-  * `cluster`: Select the NetworkAttachmentDefinition to use for the cluster network.
-* `addressRanges`: Used for `host` or `multus` providers only. Allows overriding the address ranges (CIDRs) that Ceph will listen on.
-  * `public`: A list of individual network ranges in CIDR format to use for Ceph's public network.
-  * `cluster`: A list of individual network ranges in CIDR format to use for Ceph's cluster network.
+* `selectors`: List the network selector(s) that will be used associated by a key.
 * `ipFamily`: Specifies the network stack Ceph daemons should listen on.
 * `dualStack`: Specifies that Ceph daemon should listen on both IPv4 and IPv6 network stacks.
 * `connections`: Settings for network connections using Ceph's msgr2 protocol
@@ -217,52 +211,9 @@ Configure the network that will be enabled for the cluster and services.
     Changing networking configuration after a Ceph cluster has been deployed is NOT
     supported and will result in a non-functioning cluster.
 
-#### Ceph public and cluster networks
-
-Ceph daemons can operate on up to two distinct networks: public, and cluster.
-
-Ceph daemons always use the public network, which is the Kubernetes pod network by default. The
-public network is used for client communications with the Ceph cluster (reads/writes).
-
-If specified, the cluster network is used to isolate internal Ceph replication traffic. This includes
-additional copies of data replicated between OSDs during client reads/writes. This also includes OSD
-data recovery (re-replication) when OSDs or nodes go offline. If the cluster network is unspecified,
-the public network is used for this traffic instead.
-
-Some Rook network providers allow manually specifying the public and network interfaces that Ceph
-will use for data traffic. Use `addressRanges` to specify this. For example:
-
-```yaml
-  network:
-    provider: host
-    addressRanges:
-      public:
-        - "192.168.100.0/24"
-        - "192.168.101.0/24"
-      cluster:
-        - "192.168.200.0/24"
-```
-
-This spec translates directly to Ceph's `public_network` and `host_network` configurations.
-Refer to [Ceph networking documentation](https://docs.ceph.com/docs/master/rados/configuration/network-config-ref/)
-for more details.
-
-
-The default, unspecified network provider cannot make use of these configurations.
-
-Ceph public and cluster network configurations are allowed to change, but this should be done with
-great care. When updating underlying networks or Ceph network settings, Rook assumes that the
-current network configuration used by Ceph daemons will continue to operate as intended. Network
-changes are not applied to Ceph daemon pods (like OSDs and MDSes) until the pod is restarted. When
-making network changes, ensure that restarted pods will not lose connectivity to existing pods, and
-vice versa.
-
 #### Host Networking
 
 To use host networking, set `provider: host`.
-
-To instruct Ceph to operate on specific host interfaces or networks, use `addressRanges` to select
-the network CIDRs Ceph will bind to on the host.
 
 If the host networking setting is changed in a cluster where mons are already running, the existing mons will
 remain running with the same network settings with which they were created. To complete the conversion
@@ -272,73 +223,93 @@ in order to have mons on the desired network configuration.
 
 #### Multus
 
-Rook supports using Multus NetworkAttachmentDefinitions for Ceph public and cluster networks.
+Rook supports addition of public and cluster network for ceph using Multus
 
-Refer to [Multus documentation](https://github.com/k8snetworkplumbingwg/multus-cni/blob/master/docs/how-to-use.md)
-for details about how to set up and select Multus networks.
+The selector keys are required to be `public` and `cluster` where each represent:
 
-Rook will attempt to auto-discover the network CIDRs for selected public and/or cluster networks.
-This process is not guaranteed to succeed. Furthermore, this process will get a new network lease
-for each CephCluster reconcile. Specify `addressRanges` manually if the auto-detection process
-fails or if the selected network configuration cannot automatically recycle released network leases.
+* `public`: client communications with the cluster (reads/writes)
+* `cluster`: internal Ceph replication network
 
-Only OSD pods will have both public and cluster networks attached (if specified). The rest of the
-Ceph component pods and CSI pods will only have the public network attached. The Rook operator will
-not have any networks attached; it proxies Ceph commands via a sidecar container in the mgr pod.
+If you want to learn more, please read:
 
-A NetworkAttachmentDefinition must exist before it can be used by Multus for a Ceph network. A
-recommended definition will look like the following:
+* [Ceph Networking reference](https://docs.ceph.com/docs/master/rados/configuration/network-config-ref/).
+* [Multus documentation](https://github.com/k8snetworkplumbingwg/multus-cni/blob/master/docs/how-to-use.md)
+
+Based on the configuration, the operator will do the following:
+
+1. If only the `public` selector is specified, all communication will happen on that network
+
+    ```yaml
+      network:
+        provider: multus
+        selectors:
+          public: rook-ceph/rook-public-nw
+    ```
+
+2. If only the `cluster` selector is specified, the internal cluster traffic\* will happen on that network. All other traffic to mons, OSDs, and other daemons will be on the default network.
+
+    ```yaml
+      network:
+        provider: multus
+        selectors:
+          cluster: rook-ceph/rook-cluster-nw
+    ```
+
+3. If both `public` and `cluster` selectors are specified the first one will run all the communication network and the second the internal cluster network\*
+
+    ```yaml
+      network:
+        provider: multus
+        selectors:
+          public: rook-ceph/rook-public-nw
+          cluster: rook-ceph/rook-cluster-nw
+    ```
+
+\* Internal cluster traffic includes OSD heartbeats, data replication, and data recovery
+
+Only OSD pods will have both Public and Cluster networks attached. The rest of the Ceph component pods and CSI pods will only have the Public network attached.
+Rook Ceph operator will not have any networks attached as it proxies the required commands via a sidecar container in the mgr pod.
+
+In order to work, each selector value must match a `NetworkAttachmentDefinition` object name in Multus.
+
+For `multus` network provider, an already working cluster with Multus networking is required. Network attachment definition that later will be attached to the cluster needs to be created before the Cluster CRD.
+The Network attachment definitions should be using whereabouts cni.
+If Rook cannot find the provided Network attachment definition it will fail running the Ceph OSD pods.
+You can add the Multus network attachment selection annotation selecting the created network attachment definition on `selectors`.
+
+A valid NetworkAttachmentDefinition will look like following:
 
 ```yaml
 apiVersion: "k8s.cni.cncf.io/v1"
 kind: NetworkAttachmentDefinition
 metadata:
-  name: ceph-multus-net
-  namespace: rook-ceph
+  name: rook-public-nw
 spec:
   config: '{
       "cniVersion": "0.3.0",
+      "name": "public-nad",
       "type": "macvlan",
-      "master": "eth0",
+      "master": "ens5",
       "mode": "bridge",
       "ipam": {
         "type": "whereabouts",
-        "range": "192.168.200.0/24"
+        "range": "192.168.1.0/24"
       }
     }'
 ```
 
-* Ensure that `master` matches the network interface on hosts that you want to use.
-  It must be the same across all hosts.
-* CNI type `macvlan` is highly recommended.
-  It has less CPU and memory overhead compared to traditional Linux `bridge` configurations.
-* IPAM type `whereabouts` is recommended because it ensures each pod gets an IP address unique
-  within the Kubernetes cluster. No DHCP server is required. If a DHCP server is present on the
-  network, ensure the IP range does not overlap with the DHCP server's range.
+* Ensure that `master` matches the network interface of the host that you want to use.
+* IPAM type `whereabouts` is required because it makes sure that all the pods get a unique IP address from the multus network.
+* The NetworkAttachmentDefinition should be referenced along with the namespace in which it is present like `public: <namespace>/<name of NAD>`.
+  e.g., the network attachment definition are in `default` namespace:
 
-NetworkAttachmentDefinitions are selected for the desired Ceph network using `selectors`. Selector
-values should include the namespace in which the NAD is present. `public` and `cluster` may be
-selected independently. If `public` is left unspecified, Rook will configure Ceph to use the
-Kubernetes pod network for Ceph client traffic.
+  ```yaml
+    public: default/rook-public-nw
+    cluster: default/rook-cluster-nw
+  ```
 
-Consider the example below which selects a hypothetical Kubernetes-wide Multus network in the
-default namespace for Ceph's public network and selects a Ceph-specific network in the `rook-ceph`
-namespace for Ceph's cluster network. The commented-out portion shows an example of how address
-ranges could be manually specified for the networks if needed.
-
-```yaml
-  network:
-    provider: multus
-    selectors:
-      public: default/kube-multus-net
-      cluster: rook-ceph/ceph-multus-net
-    # addressRanges:
-    #   public:
-    #     - "192.168.100.0/24"
-    #     - "192.168.101.0/24"
-    #   cluster:
-    #     - "192.168.200.0/24"
-```
+    * This format is required in order to use the NetworkAttachmentDefinition across namespaces.
+    * In Openshift, to use a NetworkAttachmentDefinition (NAD) across namespaces, the NAD must be deployed in the `default` namespace. The NAD is then referenced with the namespace: `default/rook-public-nw`
 
 ##### Validating Multus configuration
 
@@ -422,7 +393,7 @@ Below are the settings for host-based cluster. This type of cluster can specify 
     * `name`: The name of the devices and partitions (e.g., `sda`). The full udev path can also be specified for devices, partitions, and logical volumes (e.g. `/dev/disk/by-id/ata-ST4000DM004-XXXX` - this will not change after reboots).
     * `config`: Device-specific config settings. See the [config settings](#osd-configuration-settings) below
 
-Host-based cluster supports raw devices, partitions, logical volumes, encrypted devices, and multipath devices. Be sure to see the
+Host-based cluster supports raw device, partition, and logical volume. Be sure to see the
 [quickstart doc prerequisites](../../Getting-Started/quickstart.md#prerequisites) for additional considerations.
 
 Below are the settings for a PVC-based cluster.
@@ -457,16 +428,12 @@ The following are the settings for Storage Class Device Sets which can be config
 * `tuneDeviceClass`: For example, Ceph cannot detect AWS volumes as HDDs from the storage class "gp2", so you can improve Ceph performance by setting this to true.
 * `tuneFastDeviceClass`: For example, Ceph cannot detect Azure disks as SSDs from the storage class "managed-premium", so you can improve Ceph performance by setting this to true..
 * `volumeClaimTemplates`: A list of PVC templates to use for provisioning the underlying storage devices.
-  * `metadata.name`: "data", "metadata", or "wal". If a single template is provided, the name must be "data". If the name is "metadata" or "wal", the devices are used to store the Ceph metadata or WAL respectively. In both cases, the devices must be raw devices or LVM logical volumes.
-
     * `resources.requests.storage`: The desired capacity for the underlying storage devices.
-    * `storageClassName`: The StorageClass to provision PVCs from. Default would be to use the cluster-default StorageClass.
+    * `storageClassName`: The StorageClass to provision PVCs from. Default would be to use the cluster-default StorageClass. This StorageClass should provide a raw block device, multipath device, or logical volume. Other types are not supported. If you want to use logical volume, please see [known issue of OSD on LV-backed PVC](../../Troubleshooting/ceph-common-issues.md#lvm-metadata-can-be-corrupted-with-osd-on-lv-backed-pvc)
     * `volumeMode`: The volume mode to be set for the PVC. Which should be Block
     * `accessModes`: The access mode for the PVC to be bound by OSD.
 * `schedulerName`: Scheduler name for OSD pod placement. (Optional)
 * `encrypted`: whether to encrypt all the OSDs in a given storageClassDeviceSet
-
-See the table in [OSD Configuration Settings](#osd-configuration-settings) to know the allowed configurations.
 
 ### OSD Configuration Settings
 
@@ -481,16 +448,6 @@ The following storage selection settings are specific to Ceph and do not apply t
 * `osdsPerDevice`**: The number of OSDs to create on each device. High performance devices such as NVMe can handle running multiple OSDs. If desired, this can be overridden for each node and each device.
 * `encryptedDevice`**: Encrypt OSD volumes using dmcrypt ("true" or "false"). By default this option is disabled. See [encryption](http://docs.ceph.com/docs/master/ceph-volume/lvm/encryption/) for more information on encryption in Ceph.
 * `crushRoot`: The value of the `root` CRUSH map label. The default is `default`. Generally, you should not need to change this. However, if any of your topology labels may have the value `default`, you need to change `crushRoot` to avoid conflicts, since CRUSH map values need to be unique.
-
-Allowed configurations are:
-
-| block device type | host-based cluster                                                                                    | PVC-based cluster                                                               |
-|:------------------|:------------------------------------------------------------------------------------------------------|:--------------------------------------------------------------------------------|
-| disk              |                                                                                                       |                                                                                 |
-| part              | `encryptedDevice` should be "false"                                                                   | `encrypted` must be `false`                                                     |
-| lvm               | `metadataDevice` should be "", `osdsPerDevice` should be "1", and `encryptedDevice` should be "false" | `metadata.name` must not be `metadata` or `wal` and `encrypted` must be `false` |
-| crypt             |                                                                                                       |                                                                                 |
-| mpath             |                                                                                                       |                                                                                 |
 
 ### Annotations and Labels
 

@@ -122,7 +122,6 @@ The following table lists the configurable parameters of the rook-operator chart
 | `csi.serviceMonitor.enabled` | Enable ServiceMonitor for Ceph CSI drivers | `false` |
 | `csi.serviceMonitor.interval` | Service monitor scrape interval | `"5s"` |
 | `csi.serviceMonitor.labels` | ServiceMonitor additional labels | `{}` |
-| `csi.serviceMonitor.namespace` | Use a different namespace for the ServiceMonitor | `nil` |
 | `csi.sidecarLogLevel` | Set logging level for Kubernetes-csi sidecar containers. Supported values from 0 to 5. 0 for general useful logs (the default), 5 for trace level verbosity. | `0` |
 | `csi.snapshotter.image` | Kubernetes CSI snapshotter image | `registry.k8s.io/sig-storage/csi-snapshotter:v6.2.2` |
 | `csi.topology.domainLabels` | domainLabels define which node labels to use as domains for CSI nodeplugins to advertise their domains | `nil` |
@@ -137,7 +136,6 @@ The following table lists the configurable parameters of the rook-operator chart
 | `discover.tolerationKey` | The specific key of the taint to tolerate | `nil` |
 | `discover.tolerations` | Array of tolerations in YAML format which will be added to discover deployment | `nil` |
 | `discoverDaemonUdev` | Blacklist certain disks according to the regex provided. | `nil` |
-| `discoveryDaemonInterval` | Set the discovery daemon device discovery interval (default to 60m) | `"60m"` |
 | `enableDiscoveryDaemon` | Enable discovery daemon | `false` |
 | `enableOBCWatchOperatorNamespace` | Whether the OBC provisioner should watch on the operator namespace or not, if not the namespace of the cluster will be used | `true` |
 | `hostpathRequiresPrivileged` | Runs Ceph Pods as privileged to be able to write to `hostPaths` in OpenShift with SELinux restrictions. | `false` |
@@ -150,7 +148,6 @@ The following table lists the configurable parameters of the rook-operator chart
 | `nodeSelector` | Kubernetes [`nodeSelector`](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector) to add to the Deployment. | `{}` |
 | `priorityClassName` | Set the priority class for the rook operator deployment if desired | `nil` |
 | `pspEnable` | If true, create & use PSP resources | `false` |
-| `rbacAggregate.enableOBCs` | If true, create a ClusterRole aggregated to [user facing roles](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles) for objectbucketclaims | `false` |
 | `rbacEnable` | If true, create & use RBAC resources | `true` |
 | `resources` | Pod resource requests & limits | `{"limits":{"cpu":"500m","memory":"512Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}` |
 | `scaleDownOperator` | If true, scale down the rook operator. This is useful for administrative actions where the rook operator must be scaled down, while using gitops style tooling to deploy your helm charts. | `false` |

@@ -7,13 +7,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: rook-ceph-secondary # namespace:cluster
+  name: $NAMESPACE
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: rook-ceph-cluster-mgmt
-  namespace: rook-ceph-secondary # namespace:cluster
+  namespace: $NAMESPACE
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -21,13 +21,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: rook-ceph-system
-    namespace: rook-ceph # namespace:operator
+    namespace: rook-ceph
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: rook-ceph-cmd-reporter
-  namespace: rook-ceph-secondary # namespace:cluster
+  namespace: $NAMESPACE
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -35,13 +35,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: rook-ceph-cmd-reporter
-    namespace: rook-ceph-secondary # namespace:cluster
+    namespace: $NAMESPACE
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: rook-ceph-cmd-reporter-psp
-  namespace: rook-ceph-secondary # namespace:cluster
+  namespace: $NAMESPACE
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -49,13 +49,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: rook-ceph-cmd-reporter
-    namespace: rook-ceph-secondary # namespace:cluster
+    namespace: $NAMESPACE
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: rook-ceph-mgr-system-secondary
-  namespace: rook-ceph # namespace:operator
+  name: rook-ceph-mgr-system
+  namespace: $NAMESPACE
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -63,13 +63,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: rook-ceph-mgr
-    namespace: rook-ceph-secondary # namespace:cluster
+    namespace: $NAMESPACE
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: rook-ceph-mgr-psp
-  namespace: rook-ceph-secondary # namespace:cluster
+  namespace: $NAMESPACE
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -77,13 +77,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: rook-ceph-mgr
-    namespace: rook-ceph-secondary # namespace:cluster
+    namespace: $NAMESPACE
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: rook-ceph-osd-psp
-  namespace: rook-ceph-secondary # namespace:cluster
+  namespace: $NAMESPACE
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -91,13 +91,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: rook-ceph-osd
-    namespace: rook-ceph-secondary # namespace:cluster
+    namespace: $NAMESPACE
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: rook-ceph-purge-osd-psp
-  namespace: rook-ceph-secondary # namespace:cluster
+  namespace: $NAMESPACE
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -105,13 +105,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: rook-ceph-purge-osd
-    namespace: rook-ceph-secondary # namespace:cluster
+    namespace: $NAMESPACE
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: rook-ceph-rgw-psp
-  namespace: rook-ceph-secondary # namespace:cluster
+  namespace: $NAMESPACE
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -119,13 +119,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: rook-ceph-rgw
-    namespace: rook-ceph-secondary # namespace:cluster
+    namespace: $NAMESPACE
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: rook-ceph-default-psp
-  namespace: rook-ceph-secondary # namespace:cluster
+  namespace: $NAMESPACE
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -133,19 +133,19 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: default
-    namespace: rook-ceph-secondary # namespace:cluster
+    namespace: $NAMESPACE
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: rook-ceph-cmd-reporter
-  namespace: rook-ceph-secondary # namespace:cluster
+  namespace: $NAMESPACE
 ---
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: rook-ceph-cmd-reporter
-  namespace: rook-ceph-secondary # namespace:cluster
+  namespace: $NAMESPACE
 rules:
   - apiGroups:
       - ""
@@ -164,7 +164,7 @@ kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: rook-ceph-osd
-  namespace: rook-ceph-secondary # namespace:cluster
+  namespace: $NAMESPACE
 rules:
   # this is needed for rook's "key-management" CLI to fetch the vault token from the secret when
   # validating the connection details and for key rotation operations.
@@ -202,13 +202,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: rook-ceph-osd
-    namespace: rook-ceph-secondary # namespace:cluster
+    namespace: $NAMESPACE
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: rook-ceph-osd-external
-  namespace: rook-ceph-secondary # namespace:cluster
+  namespace: $NAMESPACE
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -216,26 +216,26 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: rook-ceph-osd
-    namespace: rook-ceph-secondary # namespace:cluster
+    namespace: $NAMESPACE
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: rook-ceph-mgr
-  namespace: rook-ceph-secondary # namespace:cluster
+  namespace: $NAMESPACE
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: rook-ceph-osd
-  namespace: rook-ceph-secondary # namespace:cluster
+  namespace: $NAMESPACE
 ---
 # Aspects of ceph osd purge job that require access to the operator/cluster namespace
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: rook-ceph-purge-osd
-  namespace: rook-ceph-secondary # namespace:cluster
+  namespace: $NAMESPACE
 rules:
   - apiGroups: [""]
     resources: ["configmaps"]
@@ -255,7 +255,7 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: rook-ceph-purge-osd
-  namespace: rook-ceph-secondary # namespace:cluster
+  namespace: $NAMESPACE
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -263,16 +263,16 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: rook-ceph-purge-osd
-    namespace: rook-ceph-secondary # namespace:cluster
+    namespace: $NAMESPACE
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: rook-ceph-purge-osd
-  namespace: rook-ceph-secondary # namespace:cluster
+  namespace: $NAMESPACE
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: rook-ceph-rgw
-  namespace: rook-ceph-secondary # namespace:cluster
+  namespace: $NAMESPACE

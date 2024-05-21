@@ -318,12 +318,6 @@ type DashboardSpec struct {
 	// SSL determines whether SSL should be used
 	// +optional
 	SSL bool `json:"ssl,omitempty"`
-	// Endpoint for the Prometheus host
-	// +optional
-	PrometheusEndpoint string `json:"prometheusEndpoint,omitempty"`
-	// Whether to verify the ssl endpoint for prometheus. Set to false for a self-signed cert.
-	// +optional
-	PrometheusEndpointSSLVerify bool `json:"prometheusEndpointSSLVerify,omitempty"`
 }
 
 // MonitoringSpec represents the settings for Prometheus based Ceph monitoring
@@ -587,9 +581,9 @@ type MonZoneSpec struct {
 
 // MgrSpec represents options to configure a ceph mgr
 type MgrSpec struct {
-	// Count is the number of manager daemons to run
+	// Count is the number of manager to run
 	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:validation:Maximum=5
+	// +kubebuilder:validation:Maximum=2
 	// +optional
 	Count int `json:"count,omitempty"`
 	// AllowMultiplePerNode allows to run multiple managers on the same node (not recommended)
@@ -2273,41 +2267,14 @@ type NetworkSpec struct {
 	// Provider is what provides network connectivity to the cluster e.g. "host" or "multus"
 	// +nullable
 	// +optional
-	Provider NetworkProviderType `json:"provider,omitempty"`
+	Provider string `json:"provider,omitempty"`
 
-	// Selectors define NetworkAttachmentDefinitions to be used for Ceph public and/or cluster
-	// networks when the "multus" network provider is used. This config section is not used for
-	// other network providers.
-	//
-	// Valid keys are "public" and "cluster". Refer to Ceph networking documentation for more:
-	// https://docs.ceph.com/en/reef/rados/configuration/network-config-ref/
-	//
-	// Refer to Multus network annotation documentation for help selecting values:
-	// https://github.com/k8snetworkplumbingwg/multus-cni/blob/master/docs/how-to-use.md#run-pod-with-network-annotation
-	//
-	// Rook will make a best-effort attempt to automatically detect CIDR address ranges for given
-	// network attachment definitions. Rook's methods are robust but may be imprecise for
-	// sufficiently complicated networks. Rook's auto-detection process obtains a new IP address
-	// lease for each CephCluster reconcile. If Rook fails to detect, incorrectly detects, only
-	// partially detects, or if underlying networks do not support reusing old IP addresses, it is
-	// best to use the 'addressRanges' config section to specify CIDR ranges for the Ceph cluster.
-	//
-	// As a contrived example, one can use a theoretical Kubernetes-wide network for Ceph client
-	// traffic and a theoretical Rook-only network for Ceph replication traffic as shown:
-	//   selectors:
-	//     public: "default/cluster-fast-net"
-	//     cluster: "rook-ceph/ceph-backend-net"
-	//
+	// Selectors string values describe what networks will be used to connect the cluster.
+	// Meanwhile the keys describe each network respective responsibilities or any metadata
+	// storage provider decide.
 	// +nullable
 	// +optional
-	Selectors map[CephNetworkType]string `json:"selectors,omitempty"`
-
-	// AddressRanges specify a list of CIDRs that Rook will apply to Ceph's 'public_network' and/or
-	// 'cluster_network' configurations. This config section may be used for the "host" or "multus"
-	// network providers.
-	// +nullable
-	// +optional
-	AddressRanges *AddressRangesSpec `json:"addressRanges,omitempty"`
+	Selectors map[string]string `json:"selectors,omitempty"`
 
 	// Settings for network connections such as compression and encryption across the
 	// wire.
@@ -2333,45 +2300,6 @@ type NetworkSpec struct {
 	// +optional
 	MultiClusterService MultiClusterServiceSpec `json:"multiClusterService,omitempty"`
 }
-
-// NetworkProviderType defines valid network providers for Rook.
-// +kubebuilder:validation:Enum="";host;multus
-type NetworkProviderType string
-
-const (
-	NetworkProviderDefault = NetworkProviderType("")
-	NetworkProviderHost    = NetworkProviderType("host")
-	NetworkProviderMultus  = NetworkProviderType("multus")
-)
-
-// CephNetworkType should be "public" or "cluster".
-// Allow any string so that over-specified legacy clusters do not break on CRD update.
-type CephNetworkType string
-
-const (
-	CephNetworkPublic  = CephNetworkType("public")
-	CephNetworkCluster = CephNetworkType("cluster")
-)
-
-type AddressRangesSpec struct {
-	// Public defines a list of CIDRs to use for Ceph public network communication.
-	// +optional
-	Public CIDRList `json:"public"`
-
-	// Cluster defines a list of CIDRs to use for Ceph cluster network communication.
-	// +optional
-	Cluster CIDRList `json:"cluster"`
-}
-
-// An IPv4 or IPv6 network CIDR.
-//
-// This naive kubebuilder regex provides immediate feedback for some typos and for a common problem
-// case where the range spec is forgotten (e.g., /24). Rook does in-depth validation in code.
-// +kubebuilder:validation:Pattern=`^[0-9a-fA-F:.]{2,}\/[0-9]{1,3}$`
-type CIDR string
-
-// A list of CIDRs.
-type CIDRList []CIDR
 
 type MultiClusterServiceSpec struct {
 	// Enable multiClusterService to export the mon and OSD services to peer cluster.
@@ -2685,14 +2613,6 @@ type StorageScopeSpec struct {
 	StorageClassDeviceSets []StorageClassDeviceSet `json:"storageClassDeviceSets,omitempty"`
 	// +optional
 	Store OSDStore `json:"store,omitempty"`
-	// +optional
-	// FlappingRestartIntervalHours defines the time for which the OSD pods, that failed with zero exit code, will sleep before restarting.
-	// This is needed for OSD flapping where OSD daemons are marked down more than 5 times in 600 seconds by Ceph.
-	// Preventing the OSD pods to restart immediately in such scenarios will prevent Rook from marking OSD as `up` and thus
-	// peering of the PGs mapped to the OSD.
-	// User needs to manually restart the OSD pod if they manage to fix the underlying OSD flapping issue before the restart interval.
-	// The sleep will be disabled if this interval is set to 0.
-	FlappingRestartIntervalHours int `json:"flappingRestartIntervalHours"`
 }
 
 // OSDStore is the backend storage type used for creating the OSDs

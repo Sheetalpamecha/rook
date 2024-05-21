@@ -24,7 +24,9 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/rook/rook/pkg/clusterd"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	kerror "k8s.io/apimachinery/pkg/api/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -41,7 +43,7 @@ func CreateOrUpdateService(
 
 	s, err := clientset.CoreV1().Services(namespace).Create(ctx, serviceDefinition, metav1.CreateOptions{})
 	if err != nil {
-		if !kerrors.IsAlreadyExists(err) {
+		if !kerror.IsAlreadyExists(err) {
 			return nil, fmt.Errorf("failed to create service %s. %+v", name, err)
 		}
 		s, err = UpdateService(ctx, clientset, namespace, serviceDefinition)
@@ -76,7 +78,7 @@ func UpdateService(
 func DeleteService(ctx context.Context, clientset kubernetes.Interface, namespace, name string) error {
 	err := clientset.CoreV1().Services(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
-		if kerrors.IsNotFound(err) {
+		if kerror.IsNotFound(err) {
 			return nil
 		}
 	}
@@ -164,7 +166,7 @@ func verifyExportedService(ctx context.Context, client *mcsv1Client.Clientset, n
 	}
 
 	for _, condition := range exportedService.Status.Conditions {
-		if condition.Type == mcsv1a1.ServiceExportValid && condition.Status == v1.ConditionFalse {
+		if condition.Type == mcsv1a1.ServiceExportValid && condition.Status == corev1.ConditionFalse {
 			return fmt.Errorf(*condition.Message)
 		}
 	}

@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 func TestDaemonSetTemplate(t *testing.T) {
@@ -156,7 +157,7 @@ func Test_applyVolumeToPodSpec(t *testing.T) {
 	assert.Len(t, ds.Spec.Template.Spec.Volumes, defaultVolumes+2)
 	// override existing volume configuration
 	volumes[1].VolumeSource = corev1.VolumeSource{
-		HostPath: &corev1.HostPathVolumeSource{Path: "/run/test/run"}}
+		HostPath: &v1.HostPathVolumeSource{Path: "/run/test/run"}}
 	volumeRaw, err = yaml.Marshal(volumes)
 	assert.Nil(t, err)
 	config[configKey] = string(volumeRaw)

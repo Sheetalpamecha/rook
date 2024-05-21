@@ -71,33 +71,6 @@ const (
 )
 
 const (
-	cephOSDStart = `
-set -o nounset # fail if variables are unset
-child_pid=""
-sigterm_received=false
-function sigterm() {
-	echo "SIGTERM received"
-	sigterm_received=true
-	kill -TERM "$child_pid"
-}
-trap sigterm SIGTERM
-"${@}" &
-# un-fixable race condition: if receive sigterm here, it won't be sent to child process
-child_pid="$!"
-wait "$child_pid" # wait returns the same return code of child process when called with argument
-wait "$child_pid" # first wait returns immediately upon SIGTERM, so wait again for child to actually stop; this is a noop if child exited normally
-ceph_osd_rc=$?
-if [ $ceph_osd_rc -eq 0 ] && ! $sigterm_received; then
-	touch /tmp/osd-sleep
-	echo "OSD daemon exited with code 0, possibly due to OSD flapping. The OSD pod will sleep for $ROOK_OSD_RESTART_INTERVAL hours. Restart the pod manually once the flapping issue is fixed"
-	sleep "$ROOK_OSD_RESTART_INTERVAL"h &
-	child_pid="$!"
-	wait "$child_pid"
-	wait "$child_pid" # wait again for sleep to stop
-fi
-exit $ceph_osd_rc
-`
-
 	activateOSDOnNodeCode = `
 set -o errexit
 set -o pipefail
@@ -377,7 +350,6 @@ func (c *Cluster) makeDeployment(osdProps osdProperties, osd OSDInfo, provisionC
 	envVars := c.getConfigEnvVars(osdProps, dataDir, false)
 	envVars = append(envVars, k8sutil.ClusterDaemonEnvVars(c.spec.CephVersion.Image)...)
 	envVars = append(envVars, []v1.EnvVar{
-		{Name: "ROOK_OSD_RESTART_INTERVAL", Value: strconv.Itoa(c.spec.Storage.FlappingRestartIntervalHours)},
 		{Name: "ROOK_OSD_UUID", Value: osd.UUID},
 		{Name: "ROOK_OSD_ID", Value: osdID},
 		{Name: "ROOK_CEPH_MON_HOST",
@@ -626,7 +598,7 @@ func (c *Cluster) makeDeployment(osdProps osdProperties, osd OSDInfo, provisionC
 			InitContainers:     initContainers,
 			Containers: []v1.Container{
 				{
-					Command:         getOSDCmd(command, c.spec.Storage.FlappingRestartIntervalHours),
+					Command:         command,
 					Args:            args,
 					Name:            "osd",
 					Image:           c.spec.CephVersion.Image,
@@ -667,7 +639,7 @@ func (c *Cluster) makeDeployment(osdProps osdProperties, osd OSDInfo, provisionC
 	if c.spec.Network.IsHost() {
 		podTemplateSpec.Spec.DNSPolicy = v1.DNSClusterFirstWithHostNet
 	} else if c.spec.Network.IsMultus() {
-		if err := k8sutil.ApplyMultus(c.clusterInfo.Namespace, &c.spec.Network, &podTemplateSpec.ObjectMeta); err != nil {
+		if err := k8sutil.ApplyMultus(c.spec.Network, &podTemplateSpec.ObjectMeta); err != nil {
 			return nil, err
 		}
 	}
@@ -1423,11 +1395,4 @@ func (c *Cluster) getOSDServicePorts() []v1.ServicePort {
 	}
 
 	return ports
-}
-
-func getOSDCmd(cmd []string, interval int) []string {
-	if interval != 0 {
-		return append([]string{"bash", "-x", "-c", cephOSDStart, "--"}, cmd...)
-	}
-	return cmd
 }

@@ -371,7 +371,6 @@ func getAvailableDevices(context *clusterd.Context, agent *OsdAgent) (*DeviceOsd
 				// This handles the case where the OSD deployment has been removed and the prepare
 				// job kicks in again to re-deploy the OSD.
 				continue
-
 			} else if device.Filesystem == "mpath_member" && agent.pvcBacked {
 				logger.Infof("allowing multipath disk %q with filesystem %q", device.Name, device.Filesystem)
 			} else {
@@ -445,6 +444,11 @@ func getAvailableDevices(context *clusterd.Context, agent *OsdAgent) (*DeviceOsd
 			continue
 		}
 		logger.Infof("device %q is available.", device.Name)
+
+		if device.Type == sys.PartType && agent.storeConfig.EncryptedDevice {
+			logger.Infof("partition %q is not picked because encrypted OSD on partition is not allowed", device.Name)
+			continue
+		}
 
 		var deviceInfo *DeviceOsdIDEntry
 		if agent.metadataDevice != "" && agent.metadataDevice == device.Name {
@@ -598,31 +602,31 @@ func getVolumeGroupName(lvPath string) string {
 	return vgSlice[2]
 }
 
-// GetOSDInfoById returns the osdInfo using the ceph volume list
-func GetOSDInfoById(context *clusterd.Context, clusterInfo *client.ClusterInfo, osdID int) (*oposd.OSDInfo, error) {
+// GetOSDInfoByID returns the OSDInfo using the ceph volume list
+func GetOSDInfoById(context *clusterd.Context, clusterInfo *client.ClusterInfo, osdID int) (oposd.OSDInfo, error) {
 	// LVM mode OSDs
 	osdLVMList, err := GetCephVolumeLVMOSDs(context, clusterInfo, clusterInfo.FSID, "", false, false)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to list lvm osd(s)")
+		return oposd.OSDInfo{}, errors.Wrap(err, "failed to list lvm osd(s)")
 	}
 
 	for _, osdInfo := range osdLVMList {
 		if osdInfo.ID == osdID {
-			return &osdInfo, nil
+			return osdInfo, nil
 		}
 	}
 
 	// Raw mode OSDs
 	osdRawList, err := GetCephVolumeRawOSDs(context, clusterInfo, clusterInfo.FSID, "", "", "", false, true)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to list raw osd(s)")
+		return oposd.OSDInfo{}, errors.Wrap(err, "failed to list raw osd(s)")
 	}
 
 	for _, osdInfo := range osdRawList {
 		if osdInfo.ID == osdID {
-			return &osdInfo, nil
+			return osdInfo, nil
 		}
 	}
 
-	return nil, fmt.Errorf("failed to get details for OSD %d using ceph-volume list", osdID)
+	return oposd.OSDInfo{}, fmt.Errorf("failed to get details for OSD %d using ceph-volume list", osdID)
 }

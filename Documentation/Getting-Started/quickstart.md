@@ -24,11 +24,9 @@ To check if a Kubernetes cluster is ready for `Rook`, see the [prerequisites](Pr
 
 To configure the Ceph storage cluster, at least one of these local storage options are required:
 
-* Raw devices (no partitions or formatted filesystem)
+* Raw devices (no partitions or formatted filesystems)
 * Raw partitions (no formatted filesystem)
 * LVM Logical Volumes (no formatted filesystem)
-* Encrypted devices (no formatted filesystem)
-* Multipath devices (no formatted filesystem)
 * Persistent Volumes available from a storage class in `block` mode
 
 ## TL;DR
@@ -172,7 +170,7 @@ Ceph has a dashboard to view the status of the cluster. See the [dashboard guide
 
 Create a toolbox pod for full access to a ceph admin client for debugging and troubleshooting the Rook cluster. See the [toolbox documentation](../Troubleshooting/ceph-toolbox.md) for setup and usage information.
 
-The [Rook kubectl plugin](https://github.com/rook/kubectl-rook-ceph) provides commands to view status and troubleshoot issues.
+The [Rook Krew plugin](https://github.com/rook/kubectl-rook-ceph) provides commands to view status and troubleshoot issues.
 
 See the [advanced configuration](../Storage-Configuration/Advanced/ceph-configuration.md) document for helpful maintenance and tuning examples.
 

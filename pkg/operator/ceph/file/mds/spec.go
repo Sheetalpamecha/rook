@@ -23,14 +23,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rook/rook/pkg/clusterd"
 	cephconfig "github.com/rook/rook/pkg/operator/ceph/config"
-	"github.com/rook/rook/pkg/operator/ceph/config/keyring"
 	"github.com/rook/rook/pkg/operator/ceph/controller"
 	"github.com/rook/rook/pkg/operator/k8sutil"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -42,16 +40,16 @@ const (
 	mdsCacheMemoryResourceFactor = 0.8
 )
 
-func (c *Cluster) makeDeployment(mdsConfig *mdsConfig, fsNamespacedname types.NamespacedName) (*apps.Deployment, error) {
+func (c *Cluster) makeDeployment(mdsConfig *mdsConfig, namespace string) (*apps.Deployment, error) {
 
-	mdsContainer := c.makeMdsDaemonContainer(mdsConfig, fsNamespacedname.Name)
+	mdsContainer := c.makeMdsDaemonContainer(mdsConfig)
 	mdsContainer = cephconfig.ConfigureStartupProbe(mdsContainer, c.fs.Spec.MetadataServer.StartupProbe)
 	mdsContainer = cephconfig.ConfigureLivenessProbe(mdsContainer, c.fs.Spec.MetadataServer.LivenessProbe)
 
 	podSpec := v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mdsConfig.ResourceName,
-			Namespace: fsNamespacedname.Namespace,
+			Namespace: namespace,
 			Labels:    c.podLabels(mdsConfig, true),
 		},
 		Spec: v1.PodSpec{
@@ -104,7 +102,7 @@ func (c *Cluster) makeDeployment(mdsConfig *mdsConfig, fsNamespacedname types.Na
 	if c.clusterSpec.Network.IsHost() {
 		d.Spec.Template.Spec.DNSPolicy = v1.DNSClusterFirstWithHostNet
 	} else if c.clusterSpec.Network.IsMultus() {
-		if err := k8sutil.ApplyMultus(c.clusterInfo.Namespace, &c.clusterSpec.Network, &podSpec.ObjectMeta); err != nil {
+		if err := k8sutil.ApplyMultus(c.clusterSpec.Network, &podSpec.ObjectMeta); err != nil {
 			return nil, err
 		}
 	}
@@ -129,7 +127,7 @@ func (c *Cluster) makeChownInitContainer(mdsConfig *mdsConfig) v1.Container {
 	)
 }
 
-func (c *Cluster) makeMdsDaemonContainer(mdsConfig *mdsConfig, fsName string) v1.Container {
+func (c *Cluster) makeMdsDaemonContainer(mdsConfig *mdsConfig) v1.Container {
 	args := append(
 		controller.DaemonFlags(c.clusterInfo, c.clusterSpec, mdsConfig.DaemonID),
 		"--foreground",
@@ -152,9 +150,9 @@ func (c *Cluster) makeMdsDaemonContainer(mdsConfig *mdsConfig, fsName string) v1
 		Env:             append(controller.DaemonEnvVars(c.clusterSpec), k8sutil.PodIPEnvVar(podIPEnvVar)),
 		Resources:       c.fs.Spec.MetadataServer.Resources,
 		SecurityContext: controller.PodSecurityContext(),
-		// StartupProbe time for MDS is covered liveness probe
-		LivenessProbe: generateMDSLivenessProbeExecDaemon(mdsConfig.DaemonID, fsName, keyring.VolumeMount().KeyringFilePath()),
-		WorkingDir:    cephconfig.VarLogCephDir,
+		StartupProbe:    controller.GenerateStartupProbeExecDaemon(cephconfig.MdsType, mdsConfig.DaemonID),
+		LivenessProbe:   controller.GenerateLivenessProbeExecDaemon(cephconfig.MdsType, mdsConfig.DaemonID),
+		WorkingDir:      cephconfig.VarLogCephDir,
 	}
 
 	return container

@@ -74,12 +74,8 @@ func (vtr *ValidationTestResults) addSuggestions(s ...string) {
  * Validation state machine state definitions
  */
 
-/*
- *  > Determine how many pods the image pull daemonset schedules
- *      -- next state --> Ensure node type definitions don't overlap
- */
 type getExpectedNumberOfImagePullPodsState struct {
-	expectedNumPodsPerNodeType  perNodeTypeCount
+	expectedNumPods             int
 	expectedNumPodsValueChanged time.Time
 }
 
@@ -87,63 +83,45 @@ type getExpectedNumberOfImagePullPodsState struct {
 // started. must be lower than the state timeout duration
 var podSchedulerDebounceTime = 30 * time.Second
 
+/*
+ *  > Determine how many pods the image pull daemonset schedules
+ *      -- next state --> Verify all image pull pods are running (verifies all images are pulled)
+ */
 func (s *getExpectedNumberOfImagePullPodsState) Run(
 	ctx context.Context, vsm *validationStateMachine,
 ) (suggestions []string, err error) {
-	expectedPerNodeType, err := vsm.vt.getImagePullPodCountPerNodeType(ctx)
+	expectedNumPods, err := vsm.vt.getExpectedNumberOfDaemonSetPods(ctx, imagePullAppLabel(), 1)
 	if err != nil {
 		return []string{"inability to schedule DaemonSets is likely an issue with the Kubernetes cluster itself"},
 			fmt.Errorf("expected number of image pull pods not yet ready: %w", err)
 	}
 
-	if !s.expectedNumPodsPerNodeType.Equal(&expectedPerNodeType) {
-		s.expectedNumPodsPerNodeType = expectedPerNodeType
+	if s.expectedNumPods != expectedNumPods {
+		s.expectedNumPods = expectedNumPods
 		s.expectedNumPodsValueChanged = time.Now()
 	}
 	if time.Since(s.expectedNumPodsValueChanged) < podSchedulerDebounceTime {
-		vsm.vt.Logger.Infof("waiting to ensure num expected image pull pods per node type to stabilize at %v", s.expectedNumPodsPerNodeType)
+		vsm.vt.Logger.Infof("waiting to ensure num expected image pull pods to stabilize at %d", s.expectedNumPods)
 		return []string{}, nil
 	}
-	vsm.SetNextState(&ensureNodeTypesDoNotOverlapState{
-		ImagePullPodsPerNodeType: s.expectedNumPodsPerNodeType,
-	})
-	return []string{}, nil
-}
-
-/*
- * > Ensure node type definitions don't overlap
- *      -- next state --> Verify all image pull pods are running (verifies all images are pulled)
- */
-type ensureNodeTypesDoNotOverlapState struct {
-	ImagePullPodsPerNodeType perNodeTypeCount
-}
-
-func (s *ensureNodeTypesDoNotOverlapState) Run(ctx context.Context, vsm *validationStateMachine) (suggestions []string, err error) {
-	err = vsm.vt.ensureOneImagePullPodPerNode(ctx)
-	if err != nil {
-		vsm.Exit() // checking in a loop won't change the result
-		return []string{}, err
-	}
-	vsm.vt.Logger.Infof("expecting image pull pods to be 'Ready': expected count per node type: %v", s.ImagePullPodsPerNodeType)
+	vsm.vt.Logger.Infof("expecting %d image pull pods to be 'Ready'", s.expectedNumPods)
 	vsm.SetNextState(&verifyAllPodsRunningState{
-		AppType:                  imagePullDaemonSetAppType,
-		ImagePullPodsPerNodeType: s.ImagePullPodsPerNodeType,
-		ExpectedNumPods:          s.ImagePullPodsPerNodeType.Total(),
+		AppType:         imagePullDaemonSetAppType,
+		ExpectedNumPods: s.expectedNumPods,
 	})
 	return []string{}, nil
 }
 
 /*
- *  Reusable state to verify that expected number of pods are "Running" but not necessarily "Ready"
+ *  Re-usable state to verify that expected number of pods are "Running" but not necessarily "Ready"
  *    > Verify all image pull pods are running
  *        -- next state --> Delete image pull daemonset
  *    > Verify all client pods are running
  *        -- next state --> Verify all client pods are "Ready"
  */
 type verifyAllPodsRunningState struct {
-	AppType                  daemonsetAppType
-	ImagePullPodsPerNodeType perNodeTypeCount
-	ExpectedNumPods          int
+	AppType         daemonsetAppType
+	ExpectedNumPods int
 }
 
 func (s *verifyAllPodsRunningState) Run(ctx context.Context, vsm *validationStateMachine) (suggestions []string, err error) {
@@ -154,7 +132,7 @@ func (s *verifyAllPodsRunningState) Run(ctx context.Context, vsm *validationStat
 	case imagePullDaemonSetAppType:
 		podSelectorLabel = imagePullAppLabel()
 		// image pull pods don't have multus labels, so this can't be a multus issue
-		suggestions = append(suggestions, "inability to run image pull pods is likely an issue with Nginx image or Kubernetes itself")
+		suggestions = append(suggestions, "inability to run image pull pods is likely an issue with Kubernetes itself")
 	case clientDaemonSetAppType:
 		podSelectorLabel = clientAppLabel()
 		suggestions = append(suggestions, "clients not being able to run can mean multus is unable to provide them with addresses")
@@ -163,20 +141,20 @@ func (s *verifyAllPodsRunningState) Run(ctx context.Context, vsm *validationStat
 		return []string{}, fmt.Errorf("internal error; unknown daemonset type %q", s.AppType)
 	}
 
-	numRunning, err := vsm.vt.getNumRunningPods(ctx, podSelectorLabel)
-	errMsg := fmt.Sprintf("all %d %s pods are not yet 'Running'", s.ExpectedNumPods, s.AppType)
+	numRunning, err := vsm.vt.getNumRunningPods(ctx, podSelectorLabel, s.ExpectedNumPods)
+	errMsg := fmt.Sprintf("all %d %s pods are not yet running", s.ExpectedNumPods, s.AppType)
 	if err != nil {
 		return suggestions, fmt.Errorf("%s: %w", errMsg, err)
 	}
 	if numRunning != s.ExpectedNumPods {
-		return suggestions, fmt.Errorf("%s: found %d", errMsg, numRunning)
+		return suggestions, fmt.Errorf(errMsg)
 	}
 
 	switch s.AppType {
 	case imagePullDaemonSetAppType:
 		vsm.vt.Logger.Infof("cleaning up all %d 'Running' image pull pods", s.ExpectedNumPods)
 		vsm.SetNextState(&deleteImagePullersState{
-			ImagePullPodsPerNodeType: s.ImagePullPodsPerNodeType,
+			NumImagePullPods: s.ExpectedNumPods,
 		})
 	case clientDaemonSetAppType:
 		vsm.vt.Logger.Infof("verifying all %d 'Running' client pods reach 'Ready' state", s.ExpectedNumPods)
@@ -194,7 +172,7 @@ func (s *verifyAllPodsRunningState) Run(ctx context.Context, vsm *validationStat
 type deleteImagePullersState struct {
 	// keeps track of the number of image pull pods that ran. this will directly affect the number
 	// of client pods that can be expected to run later on
-	ImagePullPodsPerNodeType perNodeTypeCount
+	NumImagePullPods int
 }
 
 func (s *deleteImagePullersState) Run(ctx context.Context, vsm *validationStateMachine) (suggestions []string, err error) {
@@ -205,7 +183,7 @@ func (s *deleteImagePullersState) Run(ctx context.Context, vsm *validationStateM
 	}
 	vsm.vt.Logger.Infof("getting web server info for clients")
 	vsm.SetNextState(&getWebServerInfoState{
-		ImagePullPodsPerNodeType: s.ImagePullPodsPerNodeType,
+		NumImagePullPods: s.NumImagePullPods,
 	})
 	return []string{}, nil
 }
@@ -215,7 +193,7 @@ func (s *deleteImagePullersState) Run(ctx context.Context, vsm *validationStateM
  *      -- next state --> Start clients
  */
 type getWebServerInfoState struct {
-	ImagePullPodsPerNodeType perNodeTypeCount
+	NumImagePullPods int
 }
 
 func (s *getWebServerInfoState) Run(ctx context.Context, vsm *validationStateMachine) (suggestions []string, err error) {
@@ -240,10 +218,10 @@ func (s *getWebServerInfoState) Run(ctx context.Context, vsm *validationStateMac
 	if err != nil {
 		return suggestions, err
 	}
-	vsm.vt.Logger.Infof("starting clients on each node")
+	vsm.vt.Logger.Infof("starting %d clients on each node", vsm.vt.DaemonsPerNode)
 	vsm.SetNextState(&startClientsState{
-		WebServerInfo:            info,
-		ImagePullPodsPerNodeType: s.ImagePullPodsPerNodeType,
+		WebServerInfo:    info,
+		NumImagePullPods: s.NumImagePullPods,
 	})
 	return []string{}, nil
 }
@@ -253,30 +231,25 @@ func (s *getWebServerInfoState) Run(ctx context.Context, vsm *validationStateMac
  *    -- next state --> Verify all client pods are running
  */
 type startClientsState struct {
-	WebServerInfo            podNetworkInfo
-	ImagePullPodsPerNodeType perNodeTypeCount
+	WebServerInfo    podNetworkInfo
+	NumImagePullPods int
 }
 
 func (s *startClientsState) Run(ctx context.Context, vsm *validationStateMachine) (suggestions []string, err error) {
-	podsPerNodeType := perNodeTypeCount{}
-	for nodeType := range vsm.vt.NodeTypes {
-		numClientDaemonsetsStarted, err := vsm.vt.startClients(ctx, vsm.resourceOwnerRefs, s.WebServerInfo.publicAddr, s.WebServerInfo.clusterAddr, nodeType)
-		if err != nil {
-			eErr := fmt.Errorf("failed to start clients: %w", err)
-			vsm.Exit() // this is a whole validation test failure if we can't start clients
-			return []string{}, eErr
-		}
-
-		// Use num image pull pods that ran for this node type as the expectation for how many pods
-		// will run for every daemonset of this node type.
-		podsPerNodeType[nodeType] = numClientDaemonsetsStarted * s.ImagePullPodsPerNodeType[nodeType]
+	err = vsm.vt.startClients(ctx, vsm.resourceOwnerRefs, s.WebServerInfo.publicAddr, s.WebServerInfo.clusterAddr)
+	if err != nil {
+		eErr := fmt.Errorf("failed to start clients: %w", err)
+		vsm.Exit() // this is a whole validation test failure if we can't start clients
+		return []string{}, eErr
 	}
-
-	vsm.vt.Logger.Infof("verifying %d client pods begin 'Running': count per node type: %v", podsPerNodeType.Total(), podsPerNodeType)
+	// Use the number of image pull pods that ran in a previous step as the expectation for how
+	// many pods will run for every daemonset. Multiplied by the number of daemons per node, we
+	// know how many total client pods should end up running.
+	totalNumClients := s.NumImagePullPods * vsm.vt.DaemonsPerNode
+	vsm.vt.Logger.Infof("verifying %d client pods begin 'Running'", totalNumClients)
 	vsm.SetNextState(&verifyAllPodsRunningState{
-		AppType:                  clientDaemonSetAppType,
-		ImagePullPodsPerNodeType: s.ImagePullPodsPerNodeType,
-		ExpectedNumPods:          podsPerNodeType.Total(),
+		AppType:         clientDaemonSetAppType,
+		ExpectedNumPods: totalNumClients,
 	})
 	return []string{}, nil
 }
@@ -306,7 +279,7 @@ func (s *verifyAllClientsReadyState) Run(ctx context.Context, vsm *validationSta
 	s.checkIfFlaky(vsm, numReady)
 
 	if numReady != s.ExpectedNumClients {
-		return defaultSuggestions, fmt.Errorf("number of 'Ready' clients [%d] is not the number expected [%d]", numReady, s.ExpectedNumClients)
+		return defaultSuggestions, fmt.Errorf("number of ready clients [%d] is not the number expected [%d]", numReady, s.ExpectedNumClients)
 	}
 
 	vsm.vt.Logger.Infof("all %d clients are 'Ready'", s.ExpectedNumClients)

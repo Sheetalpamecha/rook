@@ -13,14 +13,7 @@ metadata:
   annotations:
     k8s.v1.cni.cncf.io/networks: "{{ .NetworksAnnotationValue }}"
 spec:
-  nodeSelector:
-  {{- range $k, $v := .Placement.NodeSelector }}
-    {{ $k }}: {{ $v }}
-  {{- end }}
-  tolerations:
-  {{- range $idx, $toleration := .Placement.Tolerations }}
-    - {{ $toleration.ToJSON }}
-  {{- end }}
+  # TODO: selectors, affinities, tolerations
   securityContext:
     runAsNonRoot: true
     runAsUser: 101

@@ -31,6 +31,7 @@ import (
 	cephv1 "github.com/rook/rook/pkg/apis/ceph.rook.io/v1"
 	rookclient "github.com/rook/rook/pkg/client/clientset/versioned/fake"
 	"github.com/rook/rook/pkg/clusterd"
+	"github.com/rook/rook/pkg/daemon/ceph/client"
 	cephclient "github.com/rook/rook/pkg/daemon/ceph/client"
 	"github.com/rook/rook/pkg/util/exec"
 	exectest "github.com/rook/rook/pkg/util/exec/test"
@@ -225,7 +226,7 @@ func TestCephObjectStoreDependents(t *testing.T) {
 			logger.Infof("Command: %s %v", command, args)
 			if args[0] == "osd" {
 				if args[1] == "lspools" {
-					pools := []*cephclient.CephStoragePoolSummary{}
+					pools := []*client.CephStoragePoolSummary{}
 					output, err := json.Marshal(pools)
 					assert.Nil(t, err)
 					return string(output), nil
@@ -242,7 +243,7 @@ func TestCephObjectStoreDependents(t *testing.T) {
 		}
 	}
 
-	pools := []*cephclient.CephStoragePoolSummary{
+	pools := []*client.CephStoragePoolSummary{
 		{Name: "my-store.rgw.control"},
 		{Name: "my-store.rgw.meta"},
 		{Name: "my-store.rgw.log"},
@@ -252,7 +253,7 @@ func TestCephObjectStoreDependents(t *testing.T) {
 		{Name: "my-store.rgw.buckets.index"},
 		{Name: "my-store.rgw.otp"},
 	}
-	zoneBPools := []*cephclient.CephStoragePoolSummary{
+	zoneBPools := []*client.CephStoragePoolSummary{
 		{Name: "zone-b.rgw.control"},
 		{Name: "zone-b.rgw.meta"},
 		{Name: "zone-b.rgw.log"},
@@ -262,7 +263,7 @@ func TestCephObjectStoreDependents(t *testing.T) {
 		{Name: "zone-b.rgw.buckets.index"},
 		{Name: "zone-b.rgw.otp"},
 	}
-	zoneAPools := []*cephclient.CephStoragePoolSummary{
+	zoneAPools := []*client.CephStoragePoolSummary{
 		{Name: "zone-a.rgw.control"},
 		{Name: "zone-a.rgw.meta"},
 		{Name: "zone-a.rgw.log"},
@@ -290,7 +291,7 @@ func TestCephObjectStoreDependents(t *testing.T) {
 	setMultisiteContext := func(context *clusterd.Context, clusterInfo *cephclient.ClusterInfo, store *cephv1.CephObjectStore) *Context {
 		return &Context{Context: context, Name: store.Name, clusterInfo: clusterInfo, Realm: "realm-a", ZoneGroup: "zonegroup-a", Zone: store.Spec.Zone.Name}
 	}
-	clusterInfo := cephclient.AdminTestClusterInfo(ns)
+	clusterInfo := client.AdminTestClusterInfo(ns)
 	// Create objectmeta with the given name in our test namespace
 	meta := func(name string) v1.ObjectMeta {
 		return v1.ObjectMeta{

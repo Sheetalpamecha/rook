@@ -55,10 +55,6 @@ logLevel: INFO
 # -- If true, create & use RBAC resources
 rbacEnable: true
 
-rbacAggregate:
-  # -- If true, create a ClusterRole aggregated to [user facing roles](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles) for objectbucketclaims
-  enableOBCs: false
-
 # -- If true, create & use PSP resources
 pspEnable: false
 
@@ -480,8 +476,6 @@ csi:
     interval: 5s
     # -- ServiceMonitor additional labels
     labels: {}
-    # -- Use a different namespace for the ServiceMonitor
-    namespace:
 
   # -- Kubelet root directory path (if the Kubelet uses a different path for the `--root-dir` flag)
   # @default -- `/var/lib/kubelet`
@@ -585,8 +579,6 @@ csi:
 
 # -- Enable discovery daemon
 enableDiscoveryDaemon: false
-# -- Set the discovery daemon device discovery interval (default to 60m)
-discoveryDaemonInterval: 60m
 
 # -- The timeout for ceph commands in seconds
 cephCommandsTimeoutSeconds: "15"

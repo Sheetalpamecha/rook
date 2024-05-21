@@ -26,6 +26,7 @@ import (
 	"github.com/coreos/pkg/capnslog"
 	"github.com/pkg/errors"
 	"github.com/rook/rook/pkg/daemon/util"
+
 	"github.com/rook/rook/pkg/operator/k8sutil"
 	batch "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
@@ -52,11 +53,6 @@ const (
 var (
 	logger = capnslog.NewPackageLogger("github.com/rook/rook", "CmdReporter")
 )
-
-type CmdReporterInterface interface {
-	Job() *batch.Job
-	Run(ctx context.Context, timeout time.Duration) (stdout, stderr string, retcode int, retErr error)
-}
 
 // CmdReporter is a wrapper for Rook's cmd-reporter commandline utility allowing operators to use
 // the utility without fully specifying the job, pod, and container templates manually.
@@ -100,7 +96,7 @@ func New(
 	cmd, args []string,
 	rookImage, runImage string,
 	imagePullPolicy v1.PullPolicy,
-) (CmdReporterInterface, error) {
+) (*CmdReporter, error) {
 	cfg := &cmdReporterCfg{
 		clientset:       clientset,
 		ownerInfo:       ownerInfo,
@@ -401,32 +397,3 @@ func copyBinariesVolAndMount() (v1.Volume, v1.VolumeMount) {
 }
 
 func newInt32(i int32) *int32 { return &i }
-
-// MockCmdReporterJob creates a job using the package's internal creation mechanism without
-// validating any inputs. Use only for unit testing.
-func MockCmdReporterJob(
-	clientset kubernetes.Interface,
-	ownerInfo *k8sutil.OwnerInfo,
-	appName string,
-	jobName string,
-	jobNamespace string,
-	cmd []string,
-	args []string,
-	rookImage string,
-	runImage string,
-	imagePullPolicy v1.PullPolicy,
-) (*batch.Job, error) {
-	cfg := &cmdReporterCfg{
-		clientset:       clientset,
-		ownerInfo:       ownerInfo,
-		appName:         appName,
-		jobName:         jobName,
-		jobNamespace:    jobNamespace,
-		cmd:             cmd,
-		args:            args,
-		rookImage:       rookImage,
-		runImage:        runImage,
-		imagePullPolicy: imagePullPolicy,
-	}
-	return cfg.initJobSpec()
-}

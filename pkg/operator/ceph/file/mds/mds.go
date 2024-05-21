@@ -38,7 +38,6 @@ import (
 	"github.com/rook/rook/pkg/util/exec"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 var logger = capnslog.NewPackageLogger("github.com/rook/rook", "op-mds")
@@ -180,8 +179,7 @@ func (c *Cluster) startDeployment(ctx context.Context, daemonLetterID string) (s
 	}
 
 	// start the deployment
-	fsNamespacedname := types.NamespacedName{Name: c.fs.Name, Namespace: c.fs.Namespace}
-	d, err := c.makeDeployment(mdsConfig, fsNamespacedname)
+	d, err := c.makeDeployment(mdsConfig, c.fs.Namespace)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to create deployment")
 	}

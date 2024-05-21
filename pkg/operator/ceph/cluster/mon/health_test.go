@@ -29,6 +29,7 @@ import (
 	cephclient "github.com/rook/rook/pkg/daemon/ceph/client"
 	clienttest "github.com/rook/rook/pkg/daemon/ceph/client/test"
 	"github.com/rook/rook/pkg/operator/ceph/config"
+	"github.com/rook/rook/pkg/operator/ceph/controller"
 	opcontroller "github.com/rook/rook/pkg/operator/ceph/controller"
 	"github.com/rook/rook/pkg/operator/ceph/version"
 	testopk8s "github.com/rook/rook/pkg/operator/k8sutil/test"
@@ -240,7 +241,7 @@ func TestTrackMonsOutOfQuorum(t *testing.T) {
 
 	cm, err := clientset.CoreV1().ConfigMaps(c.Namespace).Get(context.TODO(), EndpointConfigMapName, metav1.GetOptions{})
 	assert.NoError(t, err)
-	assert.Equal(t, "a", cm.Data[opcontroller.OutOfQuorumKey])
+	assert.Equal(t, "a", cm.Data[controller.OutOfQuorumKey])
 
 	// Put mon.a back in quorum
 	updated, err = c.trackMonInOrOutOfQuorum("a", true)
@@ -249,7 +250,7 @@ func TestTrackMonsOutOfQuorum(t *testing.T) {
 
 	cm, err = clientset.CoreV1().ConfigMaps(c.Namespace).Get(context.TODO(), EndpointConfigMapName, metav1.GetOptions{})
 	assert.NoError(t, err)
-	assert.Equal(t, "", cm.Data[opcontroller.OutOfQuorumKey])
+	assert.Equal(t, "", cm.Data[controller.OutOfQuorumKey])
 }
 
 func TestSkipMonFailover(t *testing.T) {

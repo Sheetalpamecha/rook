@@ -85,7 +85,7 @@ class TestRadosJSON(unittest.TestCase):
         self.rjObj.cluster.return_val = 1
         self.rjObj.cluster.err_message = "Dummy Error"
         try:
-            self.rjObj.create_checkerKey("client.healthchecker")
+            self.rjObj.create_checkerKey()
             self.fail("Failed to raise an exception, 'ext.ExecutionFailureException'")
         except ext.ExecutionFailureException as err:
             print(f"Successfully thrown error.\nError: {err}")
@@ -175,7 +175,6 @@ class TestRadosJSON(unittest.TestCase):
         )
         # for testing, we are using 'DummyRados' object
         self.rjObj.cluster = ext.DummyRados.Rados()
-        self.rjObj._arg_parser.rgw_pool_prefix = "default"
         self.rjObj.main()
 
     def test_monitoring_endpoint_validation(self):
@@ -240,22 +239,11 @@ class TestRadosJSON(unittest.TestCase):
         del cmd_json_out["mgrmap"]["services"]["prometheus"]
         self.rjObj.cluster.cmd_output_map[cmd_key] = json.dumps(cmd_json_out)
 
-        endpoint = ""
-        port = ""
-        try:
-            endpoint, port = self.rjObj.get_active_and_standby_mgrs()
-            self.fail("An Exception was expected to be thrown")
-        except ext.ExecutionFailureException as err:
-            print(f"Successfully thrown error: {err}")
-
+        endpoint, port = self.rjObj.get_active_and_standby_mgrs()
         if endpoint != "" or port != "":
             self.fail("Expected monitoring endpoint and port to be empty")
 
-        try:
-            self.rjObj.main()
-            self.fail("An Exception was expected to be thrown")
-        except ext.ExecutionFailureException as err:
-            print(f"Successfully thrown error: {err}")
+        self.rjObj.main()
 
         if self.rjObj.out_map["MONITORING_ENDPOINT"] != "":
             self.fail("MONITORING_ENDPOINT should be empty")

@@ -217,13 +217,7 @@ func (c *Cluster) makeMonPod(monConfig *monConfig, canary bool) (*corev1.Pod, er
 	if monConfig.UseHostNetwork {
 		pod.Spec.DNSPolicy = corev1.DNSClusterFirstWithHostNet
 	} else if c.spec.Network.IsMultus() {
-		cluster := cephv1.CephCluster{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: c.Namespace,
-			},
-			Spec: c.spec,
-		}
-		if err := k8sutil.ApplyMultus(cluster.GetNamespace(), &cluster.Spec.Network, &pod.ObjectMeta); err != nil {
+		if err := k8sutil.ApplyMultus(c.spec.Network, &pod.ObjectMeta); err != nil {
 			return nil, err
 		}
 	}
